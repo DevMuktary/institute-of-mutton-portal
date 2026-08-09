@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { 
   BookOpen, LogOut, User, Clock, CheckCircle2, AlertCircle, 
-  CalendarDays, GraduationCap, Award, Lock, ArrowRight, Info, ChevronDown
+  CalendarDays, GraduationCap, Award, Lock, ArrowRight, Info, ChevronDown, X
 } from "lucide-react";
 
 interface Program {
@@ -30,7 +30,7 @@ interface UserData {
   enrollments: Enrollment[];
 }
 
-// Custom Toast Component
+// Custom Toast Component - Fixed positioning to clear the navbar
 const Toast = ({ message, onClose, type = "error" }: { message: string, onClose: () => void, type?: "error" | "success" | "info" }) => {
   useEffect(() => {
     const timer = setTimeout(() => onClose(), 5000);
@@ -47,7 +47,7 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
   const Icon = currentStyle.icon;
 
   return (
-    <div className="fixed top-6 right-6 z-50 animate-slide-in max-w-[90vw]">
+    <div className="fixed top-24 right-4 sm:right-8 z-[9999] animate-slide-in max-w-[90vw]">
       <div className={`bg-white border-l-4 shadow-2xl rounded-r-xl p-4 flex items-start w-80 max-w-full ${currentStyle.border}`}>
         <div className="flex-shrink-0 mt-0.5">
           <Icon className={`h-5 w-5 ${currentStyle.iconText}`} />
@@ -70,6 +70,7 @@ export default function DashboardPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true); // Modal state
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [toastMessage, setToastMessage] = useState("");
@@ -143,6 +144,35 @@ export default function DashboardPage() {
       
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
 
+      {/* Welcome Modal Overlay */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-[9999] bg-[#001232]/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 sm:p-10 max-w-lg w-full relative shadow-2xl animate-fade-in-down text-center">
+            <button 
+              onClick={() => setShowWelcomeModal(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-2 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-gray-100 shadow-sm">
+              <Image src="/mutoon-logo.png" alt="Logo" width={48} height={48} className="object-contain" priority />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#001232] mb-3 tracking-tight">
+              Assalamu Alaykum, {userData.fullName.split(" ")[0]}!
+            </h2>
+            <p className="text-gray-500 text-[16px] leading-relaxed mb-8">
+              Welcome to your student portal. You can now securely track your memorization progress, daily marks, and examination results all in one place.
+            </p>
+            <button 
+              onClick={() => setShowWelcomeModal(false)}
+              className="w-full bg-[#001232] text-white font-bold py-4 rounded-xl hover:bg-[#001232]/90 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200"
+            >
+              Continue to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Premium Top Navigation Bar */}
       <nav className="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50 shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -206,24 +236,8 @@ export default function DashboardPage() {
       {/* Main Dashboard Layout */}
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col min-w-0">
         
-        {/* Premium Welcome Banner */}
-        <div className="w-full bg-[#001232] rounded-3xl p-8 sm:p-10 mb-8 text-white relative overflow-hidden shadow-xl min-w-0">
-          {/* Decorative glowing blurs */}
-          <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-48 h-48 bg-[#FFB902] opacity-20 rounded-full blur-3xl pointer-events-none"></div>
-          
-          <div className="relative z-10">
-            <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 tracking-tight">
-              Assalamu Alaykum, {userData.fullName.split(" ")[0]}!
-            </h1>
-            <p className="text-gray-300 text-[16px] sm:text-lg max-w-2xl leading-relaxed">
-              Welcome to your student portal. Select an active program below to track your memorization progress and daily marks.
-            </p>
-          </div>
-        </div>
-
         {userData.enrollments.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center flex flex-col items-center shadow-lg">
+          <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center flex flex-col items-center shadow-lg mt-4">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6 border border-gray-100">
               <BookOpen className="w-10 h-10 text-gray-300" />
             </div>
@@ -236,7 +250,7 @@ export default function DashboardPage() {
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col space-y-8 min-w-0">
+          <div className="flex flex-col space-y-6 min-w-0">
             
             {/* Program Switcher Tabs */}
             <div className="w-full min-w-0">
@@ -262,17 +276,12 @@ export default function DashboardPage() {
             {activeEnrollment && (
               <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden w-full flex flex-col min-w-0">
                 
-                {/* Canvas Header */}
+                {/* Canvas Header (Cleaned up: No Max Score) */}
                 <div className="p-6 sm:p-8 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0 bg-white">
                   <div className="min-w-0 flex-grow">
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-[#001232] truncate tracking-tight">
                       {activeEnrollment.program.titleEn}
                     </h2>
-                    <div className="flex items-center mt-3 space-x-3">
-                      <span className="inline-flex items-center text-sm font-bold text-[#001232] bg-[#FFB902]/20 px-3 py-1.5 rounded-lg">
-                        Max Score: {activeEnrollment.program.maxDailyMark}
-                      </span>
-                    </div>
                   </div>
                   
                   {/* Status Badge */}
@@ -323,7 +332,7 @@ export default function DashboardPage() {
                         </div>
                         <h3 className="text-xl font-extrabold text-[#001232] mb-3">Daily Marks</h3>
                         <p className="text-gray-500 text-[15px] leading-relaxed flex-grow">
-                          Track your everyday memorization progress, attendance, and scores logged by your teacher.
+                          Track your everyday memorization progress, attendance, and performance (scored out of {activeEnrollment.program.maxDailyMark}) logged by your teacher.
                         </p>
                         <div className="mt-8 flex items-center text-[#001232] font-bold text-[16px] group-hover:text-[#FFB902] transition-colors">
                           View Marks <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform duration-300" />
