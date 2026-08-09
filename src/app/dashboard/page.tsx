@@ -138,16 +138,22 @@ export default function DashboardPage() {
             <button onClick={() => setShowWelcomeModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-2 transition-colors">
               <X className="w-5 h-5" />
             </button>
-            <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-gray-100 shadow-sm">
-              <Image src="/mutoon-logo.png" alt="Logo" width={40} height={40} className="object-contain" priority />
+            
+            {/* Branding integrated smoothly */}
+            <div className="flex flex-col items-center justify-center mb-6">
+              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm mb-3">
+                <Image src="/mutoon-logo.png" alt="Logo" width={40} height={40} className="object-contain" priority />
+              </div>
+              <h1 className="text-sm font-bold text-[#001232] uppercase tracking-widest">Institute of Mutoon</h1>
             </div>
-            <h2 className="text-2xl font-extrabold text-[#001232] mb-2 tracking-tight">
+
+            <h2 className="text-2xl font-extrabold text-[#001232] mb-3 tracking-tight">
               Welcome, {userData.fullName.split(" ")[0]}!
             </h2>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">
-              Access your memorization progress, daily marks, and examination results securely from your new dashboard.
+            <p className="text-gray-500 text-[15px] leading-relaxed mb-8">
+              Access your memorization progress, daily marks, and examination results from your new dashboard.
             </p>
-            <button onClick={() => setShowWelcomeModal(false)} className="w-full bg-[#001232] text-white font-bold py-3.5 rounded-xl hover:bg-[#001232]/90 transition-all shadow-md hover:shadow-lg">
+            <button onClick={() => setShowWelcomeModal(false)} className="w-full bg-[#001232] text-white font-bold py-3.5 rounded-xl hover:bg-[#001232]/90 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 duration-200">
               Proceed to Dashboard
             </button>
           </div>
@@ -156,13 +162,13 @@ export default function DashboardPage() {
 
       {/* Premium Navigation Bar */}
       <nav className="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50 shrink-0">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
               <div className="w-11 h-11 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center p-1.5">
                 <Image src="/mutoon-logo.png" alt="Logo" width={32} height={32} className="object-contain" priority />
               </div>
-              <span className="font-extrabold text-[#001232] text-lg hidden sm:block tracking-tight">Institute of Mutton</span>
+              <span className="font-extrabold text-[#001232] text-lg hidden sm:block tracking-tight">Institute of Mutoon</span>
             </div>
             
             {/* Unified Profile & Switcher Dropdown */}
@@ -224,10 +230,10 @@ export default function DashboardPage() {
       </nav>
 
       {/* Main Dashboard Area */}
-      <main className="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col min-w-0">
+      <main className="flex-grow w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col min-w-0">
         
         {!activeEnrollment ? (
-          <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center flex flex-col items-center shadow-sm">
+          <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center flex flex-col items-center shadow-sm mt-4">
             <BookOpen className="w-12 h-12 text-gray-300 mb-4" />
             <h3 className="text-xl font-bold text-[#001232] mb-2">No Active Programs</h3>
             <p className="text-gray-500 mb-6 text-sm">You haven't enrolled in any memorization programs yet.</p>
@@ -239,28 +245,27 @@ export default function DashboardPage() {
           <div className="flex flex-col min-w-0">
             
             {/* Program Header */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 sm:p-8 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#001232] tracking-tight truncate">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-[#001232] tracking-tight truncate">
                   {activeEnrollment.program.titleEn}
                 </h1>
-                <p className="text-gray-500 mt-1 text-sm font-medium">Student Dashboard</p>
+                <p className="text-gray-500 mt-2 text-[15px] font-medium">Student Dashboard</p>
               </div>
               
               <div className="shrink-0">
                 {activeEnrollment.approvalStatus === "APPROVED" && (
-                  <div className="flex items-center space-x-2 px-3.5 py-1.5 bg-green-50/80 border border-green-200 rounded-lg">
-                    {/* Clean custom SVG Checkmark */}
-                    <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="flex items-center space-x-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl shadow-sm">
+                    <svg className="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
-                    <span className="text-xs font-bold text-green-700 uppercase tracking-wide">Approved</span>
+                    <span className="text-xs font-bold text-green-700 uppercase tracking-wider">Approved</span>
                   </div>
                 )}
                 {activeEnrollment.approvalStatus === "PENDING" && (
-                  <div className="flex items-center space-x-2 px-3.5 py-1.5 bg-amber-50/80 border border-amber-200 rounded-lg">
-                    <Clock className="w-3.5 h-3.5 text-amber-600 stroke-[3]" />
-                    <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Pending</span>
+                  <div className="flex items-center space-x-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
+                    <Clock className="w-4 h-4 text-amber-600 stroke-[3]" />
+                    <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Pending</span>
                   </div>
                 )}
               </div>
@@ -269,65 +274,71 @@ export default function DashboardPage() {
             {/* Content Area */}
             {activeEnrollment.approvalStatus === "PENDING" ? (
               <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-12 text-center flex flex-col items-center">
-                <Clock className="w-12 h-12 text-amber-400 mb-4" />
-                <h3 className="text-xl font-bold text-[#001232] mb-2">Review in Progress</h3>
-                <p className="text-gray-500 text-sm max-w-sm">
+                <Clock className="w-16 h-16 text-amber-400 mb-6" />
+                <h3 className="text-2xl font-bold text-[#001232] mb-3">Review in Progress</h3>
+                <p className="text-gray-500 text-[16px] max-w-md leading-relaxed">
                   Your application is currently being reviewed. Full dashboard access will unlock once approved.
                 </p>
               </div>
             ) : (
-              /* Compact Horizontal Cards Grid */
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              /* Re-imagined Bold, Premium Grid */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                 
-                {/* Daily Marks Card (Active) */}
+                {/* 1. Daily Marks Card (Rich Brand Colors, Deep Gradient) */}
                 <div 
                   onClick={() => router.push(`/dashboard/${activeEnrollment.id}/marks`)}
-                  className="group bg-white border border-gray-200 rounded-2xl p-5 flex items-center space-x-4 hover:border-[#001232] hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
+                  className="group relative overflow-hidden rounded-3xl p-6 sm:p-8 cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl bg-gradient-to-br from-[#001232] to-[#001b45] border border-[#001232] flex flex-col h-full"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-[#001232]/5 text-[#001232] flex items-center justify-center shrink-0 group-hover:bg-[#001232] group-hover:text-[#FFB902] transition-colors">
-                    <CalendarDays className="w-6 h-6" />
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-[#FFB902] opacity-10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/4 pointer-events-none"></div>
+                  
+                  <div className="w-14 h-14 rounded-2xl bg-[#FFB902]/20 text-[#FFB902] flex items-center justify-center mb-6 relative z-10 border border-[#FFB902]/20 group-hover:scale-110 transition-transform duration-300">
+                    <CalendarDays className="w-7 h-7" />
                   </div>
-                  <div className="flex-1 min-w-0 py-1">
-                    <h3 className="text-[16px] font-bold text-[#001232] truncate">Daily Marks</h3>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">Track everyday memorization progress.</p>
-                  </div>
-                  <div className="shrink-0 self-center pl-2">
-                    <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-[#FFB902] group-hover:translate-x-1 transition-all" />
+                  <h3 className="text-2xl font-extrabold text-white mb-3 relative z-10">Daily Marks</h3>
+                  <p className="text-gray-300 text-[15px] leading-relaxed flex-grow relative z-10">
+                    Track your everyday memorization progress and performance.
+                  </p>
+                  <div className="mt-8 flex items-center text-[#FFB902] font-bold text-[16px] relative z-10">
+                    View Progress <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform duration-300" />
                   </div>
                 </div>
 
-                {/* Examinations Card (Locked) */}
+                {/* 2. Examinations Card (Clean, Frosted Style) */}
                 <div 
                   onClick={() => showComingSoon("Examinations")}
-                  className="group bg-gray-50 border border-gray-100 rounded-2xl p-5 flex items-center space-x-4 cursor-not-allowed relative overflow-hidden"
+                  className="group relative overflow-hidden rounded-3xl p-6 sm:p-8 cursor-not-allowed bg-white border border-gray-200 transition-all hover:border-gray-300 hover:shadow-lg flex flex-col h-full"
                 >
-                  <div className="absolute top-3 right-3">
-                    <Lock className="w-3.5 h-3.5 text-gray-300" />
+                  <div className="absolute top-6 right-6">
+                    <div className="bg-gray-50 p-2 rounded-full border border-gray-100">
+                      <Lock className="w-4 h-4 text-gray-300" />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center shrink-0 border border-gray-100">
-                    <GraduationCap className="w-6 h-6" />
+                  <div className="w-14 h-14 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mb-6 border border-gray-100">
+                    <GraduationCap className="w-7 h-7" />
                   </div>
-                  <div className="flex-1 min-w-0 py-1">
-                    <h3 className="text-[16px] font-bold text-gray-400 truncate">Examinations</h3>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">View periodic assessment scores.</p>
-                  </div>
+                  <h3 className="text-2xl font-extrabold text-gray-400 mb-3">Examinations</h3>
+                  <p className="text-gray-400 text-[15px] leading-relaxed flex-grow">
+                    Take your exams and view your assessment results.
+                  </p>
                 </div>
 
-                {/* Final Result Card (Locked) */}
+                {/* 3. Final Result Card (Clean, Frosted Style) */}
                 <div 
-                  onClick={() => showComingSoon("Final Results")}
-                  className="group bg-gray-50 border border-gray-100 rounded-2xl p-5 flex items-center space-x-4 cursor-not-allowed relative overflow-hidden md:col-span-2 lg:col-span-1"
+                  onClick={() => showComingSoon("Final Result")}
+                  className="group relative overflow-hidden rounded-3xl p-6 sm:p-8 cursor-not-allowed bg-white border border-gray-200 transition-all hover:border-gray-300 hover:shadow-lg flex flex-col h-full"
                 >
-                  <div className="absolute top-3 right-3">
-                    <Lock className="w-3.5 h-3.5 text-gray-300" />
+                  <div className="absolute top-6 right-6">
+                    <div className="bg-gray-50 p-2 rounded-full border border-gray-100">
+                      <Lock className="w-4 h-4 text-gray-300" />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-gray-100 text-gray-400 flex items-center justify-center shrink-0 border border-gray-100">
-                    <Award className="w-6 h-6" />
+                  <div className="w-14 h-14 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center mb-6 border border-gray-100">
+                    <Award className="w-7 h-7" />
                   </div>
-                  <div className="flex-1 min-w-0 py-1">
-                    <h3 className="text-[16px] font-bold text-gray-400 truncate">Final Result</h3>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">Access your overall certification.</p>
-                  </div>
+                  <h3 className="text-2xl font-extrabold text-gray-400 mb-3">Final Result</h3>
+                  <p className="text-gray-400 text-[15px] leading-relaxed flex-grow">
+                    View your final program results and access your certificate.
+                  </p>
                 </div>
 
               </div>
