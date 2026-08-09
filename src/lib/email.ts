@@ -1,14 +1,5 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.zeptomail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
 export const sendRegistrationEmail = async (
   email: string,
   fullName: string,
@@ -16,6 +7,25 @@ export const sendRegistrationEmail = async (
   status: "PENDING" | "APPROVED",
   password?: string
 ) => {
+  // 1. FAIL-SAFE: Abort immediately if SMTP credentials are not set in Railway yet.
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn(`⚠️ SMTP Credentials missing. Registration successful, but email to ${email} was skipped.`);
+    return;
+  }
+
+  // 2. Transporter with strict timeouts so it NEVER hangs the server
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.zeptomail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    connectionTimeout: 5000, // Give up after 5 seconds
+    greetingTimeout: 5000,
+    socketTimeout: 5000,
+  });
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-railway-domain.com";
   const logoUrl = `${appUrl}/mutoon-logo.png`;
 

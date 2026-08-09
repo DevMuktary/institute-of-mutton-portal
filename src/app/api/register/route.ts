@@ -63,19 +63,18 @@ export async function POST(request: Request) {
       }
     });
 
-    // Attempt to send email, but DO NOT crash if SMTP fails
-    try {
-      await sendRegistrationEmail(
-        user.email,
-        user.fullName,
-        program.titleEn,
-        isApproved ? "APPROVED" : "PENDING",
-        isNewUser && isApproved ? plainPassword : undefined
-      );
-    } catch (emailError) {
-      console.error("ZeptoMail failed to send, but registration succeeded:", emailError);
-    }
+    // FIRE AND FORGET: Execute email sending in the background without making the user wait.
+    sendRegistrationEmail(
+      user.email,
+      user.fullName,
+      program.titleEn,
+      isApproved ? "APPROVED" : "PENDING",
+      isNewUser && isApproved ? plainPassword : undefined
+    ).catch(emailError => {
+      console.error("Background Email Error:", emailError);
+    });
 
+    // Return success to the UI instantly
     return NextResponse.json({ success: true, status: enrollment.approvalStatus }, { status: 201 });
 
   } catch (error) {
