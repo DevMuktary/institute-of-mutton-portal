@@ -10,7 +10,12 @@ import SearchableSelect from "@/components/SearchableSelect";
 export default function MemorizationRegistrationPage() {
   const params = useParams();
   const rawSlug = params?.slug as string || "program";
-  const programName = rawSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  
+  // Format the URL slug into a readable program name dynamically
+  const programName = rawSlug
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -95,10 +100,12 @@ export default function MemorizationRegistrationPage() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center p-4">
-        <div className="max-w-md w-full bg-white shadow-2xl rounded-2xl p-8 text-center border border-gray-100">
+      <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4">
+        <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 text-center border border-gray-100">
           <div className="w-20 h-20 bg-[#001232] rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-[#FFB902]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            <svg className="w-10 h-10 text-[#FFB902]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
           <h2 className="text-2xl font-bold text-[#001232] mb-2">Registration Successful</h2>
           <p className="text-gray-600 mb-6">
@@ -115,21 +122,22 @@ export default function MemorizationRegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center pb-12 pt-8 sm:p-8">
-      <div className="max-w-2xl w-full bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-100">
-        
-        {/* Premium Header Section */}
-        <div className="relative bg-[#001232] px-8 pt-12 pb-20 text-center">
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            Institute of Mutton
-          </h1>
-          <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">
-            Memorization Program Application
-          </p>
-        </div>
+    <div className="min-h-screen bg-white flex flex-col items-center">
+      {/* Premium Header Section - Stretches full width */}
+      <div className="w-full bg-[#001232] px-4 pt-12 pb-24 flex flex-col items-center text-center">
+        <h1 className="text-3xl font-bold text-white tracking-tight">
+          Institute of Mutton
+        </h1>
+        <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">
+          Memorization Program Application
+        </p>
+      </div>
 
+      {/* Main Content Area - Overlaps the header slightly for depth */}
+      <div className="max-w-3xl w-full px-4 sm:px-8 -mt-12 z-10 relative bg-white rounded-t-3xl sm:rounded-3xl sm:shadow-2xl sm:border sm:border-gray-100 mb-12">
+        
         {/* Floating Cube Logo & Dynamic Title */}
-        <div className="px-8 relative -mt-12 flex flex-col items-center">
+        <div className="flex flex-col items-center -mt-10 mb-8">
           <div className="w-24 h-24 bg-white rounded-2xl shadow-lg p-2 flex items-center justify-center border border-gray-100 mb-6">
             <Image 
               src="/mutoon-logo.png" 
@@ -141,14 +149,14 @@ export default function MemorizationRegistrationPage() {
             />
           </div>
           
-          <div className="w-full bg-[#F8FAFC] border border-gray-200 rounded-xl p-4 text-center mb-6">
+          <div className="w-full max-w-md bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
             <p className="text-sm text-gray-500 font-medium mb-1">Applying for Program:</p>
             <h2 className="text-xl font-bold text-[#001232]">{programName}</h2>
           </div>
         </div>
 
         {/* Form Section */}
-        <div className="px-8 pb-8">
+        <div className="pb-8">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium">
               {error}
