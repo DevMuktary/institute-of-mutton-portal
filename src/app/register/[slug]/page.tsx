@@ -15,17 +15,17 @@ const Toast = ({ message, onClose }: { message: string, onClose: () => void }) =
   }, [onClose]);
 
   return (
-    <div className="fixed top-6 right-6 z-50 animate-slide-in">
-      <div className="bg-red-50 border-l-4 border-red-500 shadow-lg rounded-r-lg p-4 flex items-start w-80">
+    <div className="fixed top-6 right-6 z-50 animate-slide-in max-w-[90vw]">
+      <div className="bg-red-50 border-l-4 border-red-500 shadow-lg rounded-r-lg p-4 flex items-start w-80 max-w-full">
         <div className="flex-shrink-0">
           <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
         </div>
         <div className="ml-3 w-full">
-          <p className="text-sm font-semibold text-red-800">{message}</p>
+          <p className="text-sm font-semibold text-red-800 break-words">{message}</p>
         </div>
-        <button onClick={onClose} className="ml-auto pl-3 text-red-500 hover:text-red-700">
+        <button onClick={onClose} className="ml-auto pl-3 text-red-500 hover:text-red-700 shrink-0">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
@@ -122,7 +122,7 @@ export default function MemorizationRegistrationPage() {
 
   if (isVerifying) {
     return (
-      <div className="min-h-screen bg-white flex flex-col justify-center items-center">
+      <div className="min-h-screen w-full overflow-x-hidden bg-white flex flex-col justify-center items-center">
         <div className="w-12 h-12 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin mb-4"></div>
         <p className="text-[#001232] font-semibold text-[16px]">Verifying program availability...</p>
       </div>
@@ -131,7 +131,7 @@ export default function MemorizationRegistrationPage() {
 
   if (verificationError) {
     return (
-      <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4">
+      <div className="min-h-screen w-full overflow-x-hidden bg-white flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 text-center border border-gray-100">
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -148,7 +148,7 @@ export default function MemorizationRegistrationPage() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4">
+      <div className="min-h-screen w-full overflow-x-hidden bg-white flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 text-center border border-gray-100">
           <div className="w-20 h-20 bg-[#001232] rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-10 h-10 text-[#FFB902]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -168,16 +168,16 @@ export default function MemorizationRegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col w-full">
+    <div className="min-h-screen bg-white flex flex-col w-full overflow-x-hidden relative">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} />}
       
-      {/* Header - No overflow possible */}
+      {/* Header - Shrink-0 ensures it doesn't flex weirdly on mobile */}
       <div className="w-full bg-[#001232] px-4 pt-12 pb-24 flex flex-col items-center text-center shrink-0">
         <h1 className="text-3xl font-bold text-white tracking-tight">Institute of Mutton</h1>
         <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">Memorization Program Application</p>
       </div>
 
-      {/* Main Content Area - Properly constrained max-width */}
+      {/* Main Content Area - max-w combined with w-full ensures strict bounds */}
       <div className="w-full max-w-3xl mx-auto px-4 sm:px-8 -mt-12 z-10 relative bg-white rounded-t-3xl sm:rounded-3xl sm:shadow-2xl sm:border sm:border-gray-100 mb-12 flex-grow">
         
         <div className="flex flex-col items-center -mt-10 mb-8">
@@ -186,50 +186,51 @@ export default function MemorizationRegistrationPage() {
           </div>
           <div className="w-full max-w-md bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
             <p className="text-sm text-gray-500 font-medium mb-1">Applying for Program:</p>
-            <h2 className="text-xl font-bold text-[#001232]">{programTitle}</h2>
+            <h2 className="text-xl font-bold text-[#001232] break-words">{programTitle}</h2>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 pb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Full Name</label>
               <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
+                className="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
                 placeholder="Enter your full name" />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Email Address</label>
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
+                className="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
                 placeholder="you@example.com" />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Country</label>
               <SearchableSelect options={countryOptions} value={country} onChange={setCountry} placeholder="-- Select Country --" searchable={true} />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Phone Number</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 py-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-600 font-medium text-[16px]">
+              <div className="flex w-full">
+                <span className="inline-flex items-center px-4 py-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-600 font-medium text-[16px] shrink-0">
                   {dialCode}
                 </span>
                 <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
+                  className="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
                   placeholder="801 234 5678" />
               </div>
             </div>
 
-            <div>
+            {/* Date Input - appearance-none and max-w-full prevent Safari's native date picker from breaking layout */}
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Date of Birth</label>
               <input type="date" required value={dob} onChange={(e) => setDob(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232] bg-white" />
+                className="w-full min-w-0 max-w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232] bg-white appearance-none" />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Gender</label>
               <SearchableSelect options={genderOptions} value={gender} onChange={setGender} placeholder="-- Select Gender --" />
             </div>
@@ -237,23 +238,23 @@ export default function MemorizationRegistrationPage() {
 
           <hr className="border-gray-200 my-6" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Level of Islamic Knowledge</label>
               <SearchableSelect options={knowledgeOptions} value={knowledge} onChange={setKnowledge} placeholder="-- Select Level --" />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-sm font-semibold text-[#001232] mb-1">Read & Understand Arabic?</label>
               <SearchableSelect options={arabicOptions} value={arabic} onChange={setArabic} placeholder="-- Please Select --" />
             </div>
           </div>
 
-          <div className="flex items-start pt-4">
-            <div className="flex items-center h-5 mt-1">
+          <div className="flex items-start pt-4 min-w-0">
+            <div className="flex items-center h-5 mt-1 shrink-0">
               <input id="agreement" type="checkbox" required checked={agreement} onChange={(e) => setAgreement(e.target.checked)}
                 className="w-5 h-5 border border-gray-300 rounded bg-white focus:ring-3 focus:ring-[#FFB902] text-[#001232] accent-[#001232] cursor-pointer" />
             </div>
-            <label htmlFor="agreement" className="ml-3 text-[16px] font-medium text-[#001232] leading-snug cursor-pointer">
+            <label htmlFor="agreement" className="ml-3 text-[16px] font-medium text-[#001232] leading-snug cursor-pointer break-words">
               I commit to diligently participate in this memorization program and understand the requirements for successful completion.
             </label>
           </div>
@@ -278,7 +279,7 @@ export default function MemorizationRegistrationPage() {
       </div>
 
       {/* Quadrox Footer */}
-      <footer className="w-full py-6 mt-auto border-t border-gray-100 text-center">
+      <footer className="w-full py-6 mt-auto border-t border-gray-100 text-center shrink-0">
         <p className="text-sm text-gray-400">
           &copy; 2026{" "}
           <a href="https://quadroxtech.cloud" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#001232] hover:text-[#FFB902] transition-colors">
