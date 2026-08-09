@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -10,12 +10,11 @@ import SearchableSelect from "@/components/SearchableSelect";
 export default function MemorizationRegistrationPage() {
   const params = useParams();
   const rawSlug = params?.slug as string || "program";
-  
-  // Format the URL slug into a readable program name dynamically
-  const programName = rawSlug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+
+  // Pre-Validation State
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [programTitle, setProgramTitle] = useState("");
+  const [verificationError, setVerificationError] = useState("");
 
   // Form State
   const [fullName, setFullName] = useState("");
@@ -28,7 +27,7 @@ export default function MemorizationRegistrationPage() {
   const [arabic, setArabic] = useState("");
   const [agreement, setAgreement] = useState(false);
 
-  // Status State
+  // Submission Status State
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
@@ -54,6 +53,28 @@ export default function MemorizationRegistrationPage() {
     { label: "No", value: "No" },
     { label: "Basic", value: "Basic" }
   ];
+
+  // Instantly verify if the program exists when the page loads
+  useEffect(() => {
+    const verifyProgram = async () => {
+      try {
+        const res = await fetch(`/api/program/${rawSlug}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          setVerificationError(data.error || "Program not found.");
+        } else {
+          setProgramTitle(data.titleEn);
+        }
+      } catch (err) {
+        setVerificationError("Failed to connect to the server.");
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    verifyProgram();
+  }, [rawSlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +119,37 @@ export default function MemorizationRegistrationPage() {
     }
   };
 
+  // 1. Render Loading Screen while checking database
+  if (isVerifying) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col justify-center items-center">
+        <div className="w-12 h-12 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin mb-4"></div>
+        <p className="text-[#001232] font-semibold">Verifying program availability...</p>
+      </div>
+    );
+  }
+
+  // 2. Render 404 / Error Screen if program is invalid
+  if (verificationError) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4">
+        <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 text-center border border-gray-100">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-[#001232] mb-2">Registration Unavailable</h2>
+          <p className="text-gray-600 mb-6">{verificationError}</p>
+          <Link href="/" className="inline-block w-full bg-[#001232] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#001232]/90 transition-colors">
+            Return to Homepage
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Render Success Screen after submitting form
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-white flex flex-col justify-center items-center p-4">
@@ -121,6 +173,7 @@ export default function MemorizationRegistrationPage() {
     );
   }
 
+  // 4. Render Main Registration Form
   return (
     <div className="min-h-screen bg-white flex flex-col items-center">
       {/* Premium Header Section - Stretches full width */}
@@ -151,7 +204,7 @@ export default function MemorizationRegistrationPage() {
           
           <div className="w-full max-w-md bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
             <p className="text-sm text-gray-500 font-medium mb-1">Applying for Program:</p>
-            <h2 className="text-xl font-bold text-[#001232]">{programName}</h2>
+            <h2 className="text-xl font-bold text-[#001232]">{programTitle}</h2>
           </div>
         </div>
 
