@@ -12,6 +12,7 @@ import {
 interface Program {
   id: string;
   titleEn: string;
+  slug: string;
   maxDailyMark: number;
 }
 
