@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -30,15 +29,15 @@ model User {
 }
 
 model Program {
-  id               String    @id @default(uuid())
+  id               String      @id @default(uuid())
   titleEn          String
   titleAr          String?
-  maxDailyMark     Int       @default(100)
-  isRegOpen        Boolean   @default(true)
+  maxDailyMark     Int         @default(100)
+  isRegOpen        Boolean     @default(true)
   students         User[]
   dailyMarks       DailyMark[]
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 }
 
 model DailyMark {
