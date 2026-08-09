@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 // Custom Toast Component
 const Toast = ({ message, onClose, type = "error" }: { message: string, onClose: () => void, type?: "error" | "success" }) => {
@@ -43,6 +44,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -70,10 +72,9 @@ export default function LoginPage() {
         setToastType("success");
         setToastMessage("Login successful! Redirecting...");
         
-        // Let the toast show briefly before redirecting
         setTimeout(() => {
           if (data.mustResetPass) {
-            router.push("/reset-password"); // We will build this next
+            router.push("/reset-password"); 
           } else {
             router.push("/dashboard");
           }
@@ -90,10 +91,10 @@ export default function LoginPage() {
     <div className="min-h-screen bg-white flex flex-col w-full overflow-x-hidden relative">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
       
-      {/* Header */}
+      {/* Header - Explicitly stating Memorization Program */}
       <div className="w-full bg-[#001232] px-4 pt-12 pb-24 flex flex-col items-center text-center shrink-0">
         <h1 className="text-3xl font-bold text-white tracking-tight">Institute of Mutton</h1>
-        <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">Student Portal Access</p>
+        <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">Memorization Program Portal</p>
       </div>
 
       {/* Main Content Area */}
@@ -105,7 +106,7 @@ export default function LoginPage() {
           </div>
           <div className="w-full text-center">
             <h2 className="text-2xl font-bold text-[#001232]">Welcome Back</h2>
-            <p className="text-gray-500 mt-1">Enter your credentials to access your dashboard.</p>
+            <p className="text-gray-500 mt-1">Enter your credentials to access your memorization dashboard.</p>
           </div>
         </div>
 
@@ -122,21 +123,37 @@ export default function LoginPage() {
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 relative">
             <div className="flex justify-between items-center mb-1">
               <label className="block text-sm font-semibold text-[#001232]">Password</label>
               <Link href="/forgot-password" className="text-sm font-semibold text-[#FFB902] hover:text-[#e0a200] transition-colors">
                 Forgot password?
               </Link>
             </div>
-            <input 
-              type="password" 
-              required 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232]"
-              placeholder="••••••••" 
-            />
+            
+            {/* Password Input with Eye Icon */}
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                required 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full min-w-0 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none text-[16px] text-[#001232] pr-12"
+                placeholder="••••••••" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
 
           <button type="submit" disabled={isLoading}
@@ -148,6 +165,14 @@ export default function LoginPage() {
               </svg>
             ) : "Sign In"}
           </button>
+
+          {/* Registration Link */}
+          <div className="pt-4 text-center text-[16px] font-medium text-gray-500">
+            Don't have an account?{" "}
+            <Link href="/" className="text-[#001232] font-bold hover:text-[#FFB902] transition-colors">
+              Apply for a Program
+            </Link>
+          </div>
         </form>
       </div>
 
