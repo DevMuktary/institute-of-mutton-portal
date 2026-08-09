@@ -30,9 +30,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { studentId, programId, dayLabel, score } = body;
+    const { studentId, programId, dayNumber, score, notes } = body;
 
-    if (!studentId || !programId || !dayLabel || score === undefined || score === "") {
+    if (!studentId || !programId || !dayNumber || score === undefined || score === "") {
        return NextResponse.json({ success: false, error: "All fields are required." }, { status: 400 });
     }
 
@@ -44,12 +44,27 @@ export async function POST(request: Request) {
        return NextResponse.json({ success: false, error: `Score must be between 0 and ${program.maxDailyMark}.` }, { status: 400 });
     }
 
-    const mark = await prisma.dailyMark.create({
-      data: {
+    // Using upsert ensures we don't violate the unique constraint if a mark already exists
+    const mark = await prisma.dailyMark.upsert({
+      where: {
+        studentId_programId_dayNumber: {
+          studentId,
+          programId,
+          dayNumber: parseInt(dayNumber)
+        }
+      },
+      update: {
+        score: numScore,
+        notes: notes || null,
+        teacherId: payload.id as string
+      },
+      create: {
         studentId,
         programId,
-        dayLabel,
-        score: numScore
+        dayNumber: parseInt(dayNumber),
+        score: numScore,
+        notes: notes || null,
+        teacherId: payload.id as string
       }
     });
 
