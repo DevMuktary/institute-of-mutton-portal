@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 export const sendRegistrationEmail = async (
   email: string,
   fullName: string,
@@ -7,24 +5,11 @@ export const sendRegistrationEmail = async (
   status: "PENDING" | "APPROVED",
   password?: string
 ) => {
-  // 1. FAIL-SAFE: Abort immediately if SMTP credentials are not set in Railway yet.
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn(`⚠️ SMTP Credentials missing. Registration successful, but email to ${email} was skipped.`);
+  // 1. FAIL-SAFE: Abort immediately if credentials are not set
+  if (!process.env.ZEPTOMAIL_API_KEY || !process.env.ZEPTOMAIL_SENDER_EMAIL) {
+    console.warn(`⚠️ Email credentials missing. Registration successful, but email to ${email} was skipped.`);
     return;
   }
-
-  // 2. Transporter with strict timeouts so it NEVER hangs the server
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.zeptomail.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 5000, // Give up after 5 seconds
-    greetingTimeout: 5000,
-    socketTimeout: 5000,
-  });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-railway-domain.com";
   const logoUrl = `${appUrl}/mutoon-logo.png`;
@@ -71,10 +56,42 @@ export const sendRegistrationEmail = async (
     </html>
   `;
 
-  await transporter.sendMail({
-    from: `"Institute of Mutton" <${process.env.SMTP_FROM_EMAIL || 'noreply@yourdomain.com'}>`,
-    to: email,
-    subject,
-    html: htmlTemplate,
-  });
+  try {
+    // ZeptoMail API requires the token to start with 'Zoho-enczapikey '
+    const token = process.env.ZEPTOMAIL_API_KEY;
+    const apiKey = token.startsWith("Zoho-enczapikey") ? token : `Zoho-enczapikey ${token}`;
+
+    // 2. Fetch API using standard HTTPS (Port 443 - Never Blocked)
+    const response = await fetch("https://api.zeptomail.com/v1.1/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({
+        from: {
+          address: process.env.ZEPTOMAIL_SENDER_EMAIL,
+          name: "Institute of Mutton"
+        },
+        to: [
+          {
+            email_address: {
+              address: email,
+              name: fullName
+            }
+          }
+        ],
+        subject: subject,
+        htmlbody: htmlTemplate
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("ZeptoMail API Error:", errText);
+    }
+  } catch (error) {
+    console.error("Failed to send email via ZeptoMail REST API:", error);
+  }
 };
