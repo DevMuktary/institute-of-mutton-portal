@@ -1,13 +1,61 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id             String      @id @default(uuid())
+  email          String      @unique
+  password       String
+  fullName       String
+  role           Role        @default(STUDENT)
+  mustResetPass  Boolean     @default(true)
+  isBlocked      Boolean     @default(false)
+  programId      String?
+  program        Program?    @relation(fields: [programId], references: [id], onDelete: SetNull)
+  dailyMarks     DailyMark[]
+  examMarks      ExamMark[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Program {
+  id               String    @id @default(uuid())
+  titleEn          String
+  titleAr          String?
+  maxDailyMark     Int       @default(100)
+  isRegOpen        Boolean   @default(true)
+  students         User[]
+  dailyMarks       DailyMark[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model DailyMark {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  programId   String
+  program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  dayLabel    String   // e.g., "Day 1", "Day 2"
+  score       Float
+  date        DateTime @default(now())
+}
+
+model ExamMark {
+  id        String   @id @default(uuid())
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score     Float?
+  date      DateTime @default(now())
 }
