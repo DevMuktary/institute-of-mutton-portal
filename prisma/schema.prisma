@@ -23,6 +23,7 @@ model User {
   programId      String?
   program        Program?    @relation(fields: [programId], references: [id], onDelete: SetNull)
   dailyMarks     DailyMark[]
+  approvalStatus ApprovalStatus @default(APPROVED) // Paid are auto-approved, free will be set to PENDING on creation
   examMarks      ExamMark[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -33,6 +34,7 @@ model Program {
   titleEn          String
   titleAr          String?
   maxDailyMark     Int         @default(100)
+  isPaid         Boolean       @default(false)
   isRegOpen        Boolean     @default(true)
   students         User[]
   dailyMarks       DailyMark[]
