@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -20,6 +21,7 @@ enum ApprovalStatus {
 
 model User {
   id               String       @id @default(uuid())
+  studentUniqueId  String?      @unique // Brought over from your old 'students' table
   email            String       @unique
   password         String
   fullName         String
@@ -33,7 +35,8 @@ model User {
   mustResetPass    Boolean      @default(true)
   isBlocked        Boolean      @default(false)
   enrollments      Enrollment[]
-  dailyMarks       DailyMark[]
+  dailyMarks       DailyMark[]  @relation("StudentMarks")
+  markedMarks      DailyMark[]  @relation("TeacherMarks") // Tracks which teacher gave the mark
   examMarks        ExamMark[]
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -63,18 +66,28 @@ model Enrollment {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  @@unique([userId, programId]) // Prevents applying to the exact same program twice
+  @@unique([userId, programId])
 }
 
 model DailyMark {
   id          String   @id @default(uuid())
+  
   studentId   String
-  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student     User     @relation("StudentMarks", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  teacherId   String?
+  teacher     User?    @relation("TeacherMarks", fields: [teacherId], references: [id], onDelete: SetNull)
+
   programId   String
   program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  dayLabel    String   
+  
+  dayNumber   Int      // Replaces dayLabel to allow chronological spreadsheet sorting
   score       Float
+  notes       String?  // Optional teacher feedback
+  
   date        DateTime @default(now())
+
+  @@unique([studentId, programId, dayNumber]) // Prevents a student from having two scores for "Day 1"
 }
 
 model ExamMark {
