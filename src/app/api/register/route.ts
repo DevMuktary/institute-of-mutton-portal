@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { sendRegistrationEmail } from "@/lib/email";
 
-const prisma = new PrismaClient();
+// Initialize standard pg connection pool
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// Create the adapter
+const adapter = new PrismaPg(pool);
+
+// Pass the adapter to Prisma 7
+const prisma = new PrismaClient({ adapter });
 
 // Auto-generate a secure random password for approved users
 const generatePassword = () => Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
