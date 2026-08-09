@@ -1,32 +1,63 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useParams } from "next/navigation";
+import { useState } from "react";
 import { countries } from "@/lib/countries";
 
-export default function RegisterPage() {
+export default function MemorizationRegistrationPage() {
+  const params = useParams();
+  
+  // Format the URL slug into a readable program name (e.g., "arabic-basics" -> "Arabic Basics")
+  const rawSlug = params?.slug as string || "program";
+  const programName = rawSlug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+  // State to manage the active dial code based on country selection
+  const [dialCode, setDialCode] = useState(countries[0].dialCode); // Defaults to Nigeria (+234)
+
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = countries.find(c => c.name === e.target.value);
+    if (selected) {
+      setDialCode(selected.dialCode);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center p-4 sm:p-8">
-      <div className="max-w-2xl w-full bg-white shadow-2xl rounded-xl overflow-hidden border border-gray-100">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center pb-12 pt-8 sm:p-8">
+      <div className="max-w-2xl w-full bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-100">
         
-        {/* Header Section */}
-        <div className="bg-[#001232] p-8 text-center flex flex-col items-center">
-          <Image 
-            src="/mutoon-logo.png" 
-            alt="Institute of Mutton Logo" 
-            width={100} 
-            height={100} 
-            className="mb-4 object-contain"
-            priority
-          />
+        {/* Premium Header Section */}
+        <div className="relative bg-[#001232] px-8 pt-12 pb-20 text-center">
           <h1 className="text-3xl font-bold text-white tracking-tight">
             Institute of Mutton
           </h1>
-          <p className="text-[#FFB902] mt-2 font-medium">
-            Student Portal Registration
+          <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">
+            Memorization Program Application
           </p>
         </div>
 
+        {/* Floating Cube Logo & Dynamic Title */}
+        <div className="px-8 relative -mt-12 flex flex-col items-center">
+          <div className="w-24 h-24 bg-white rounded-2xl shadow-lg p-2 flex items-center justify-center border border-gray-100 mb-6">
+            <Image 
+              src="/mutoon-logo.png" 
+              alt="Institute of Mutton Logo" 
+              width={80} 
+              height={80} 
+              className="object-contain"
+              priority
+            />
+          </div>
+          
+          <div className="w-full bg-[#F8FAFC] border border-gray-200 rounded-xl p-4 text-center mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-1">Applying for Program:</p>
+            <h2 className="text-xl font-bold text-[#001232]">{programName}</h2>
+          </div>
+        </div>
+
         {/* Form Section */}
-        <div className="p-8">
+        <div className="px-8 pb-8">
           <form className="space-y-6">
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -46,26 +77,30 @@ export default function RegisterPage() {
                   placeholder="you@example.com" />
               </div>
 
-              {/* Phone Number */}
-              <div>
-                <label htmlFor="phone" className="block text-sm font-semibold text-[#001232] mb-1">Phone Number</label>
-                <input type="tel" id="phone" name="phone" required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none transition-all text-[#001232]"
-                  placeholder="+123 456 7890" />
-              </div>
-
               {/* Country */}
               <div>
                 <label htmlFor="country" className="block text-sm font-semibold text-[#001232] mb-1">Country</label>
-                <select id="country" name="country" required
+                <select id="country" name="country" required onChange={handleCountryChange} defaultValue="Nigeria"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none transition-all text-[#001232] bg-white">
-                  <option value="">-- Select Country --</option>
                   {countries.map((country) => (
                     <option key={country.code} value={country.name}>
                       {country.flag} {country.name}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Smart Phone Number */}
+              <div>
+                <label htmlFor="phone" className="block text-sm font-semibold text-[#001232] mb-1">Phone Number</label>
+                <div className="flex">
+                  <span className="inline-flex items-center px-4 py-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-600 font-medium sm:text-sm">
+                    {dialCode}
+                  </span>
+                  <input type="tel" id="phone" name="phone" required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none transition-all text-[#001232]"
+                    placeholder="801 234 5678" />
+                </div>
               </div>
 
               {/* Date of Birth */}
@@ -104,7 +139,7 @@ export default function RegisterPage() {
 
               {/* Arabic Understanding */}
               <div>
-                <label htmlFor="arabic" className="block text-sm font-semibold text-[#001232] mb-1">Do you read & understand Arabic?</label>
+                <label htmlFor="arabic" className="block text-sm font-semibold text-[#001232] mb-1">Read & Understand Arabic?</label>
                 <select id="arabic" name="arabic" required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none transition-all text-[#001232] bg-white">
                   <option value="">-- Please Select --</option>
@@ -115,25 +150,17 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Program Selection */}
-            <div className="pt-2">
-              <label htmlFor="program" className="block text-sm font-semibold text-[#001232] mb-1">Select Program</label>
-              <select id="program" name="program" required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] focus:border-[#FFB902] outline-none transition-all text-[#001232] bg-white">
-                <option value="">-- Choose a program --</option>
-                <option value="prog_1">Foundation in Islamic Studies (Paid)</option>
-                <option value="prog_2">Arabic Grammar Basics (Free)</option>
-              </select>
-            </div>
+            {/* Hidden field to pass program slug to server action later */}
+            <input type="hidden" name="programSlug" value={rawSlug} />
 
             {/* Agreement Checkbox */}
             <div className="flex items-start pt-4">
-              <div className="flex items-center h-5">
+              <div className="flex items-center h-5 mt-1">
                 <input id="agreement" name="agreement" type="checkbox" required
-                  className="w-5 h-5 border border-gray-300 rounded bg-white focus:ring-3 focus:ring-[#FFB902] text-[#001232] accent-[#001232]" />
+                  className="w-5 h-5 border border-gray-300 rounded bg-white focus:ring-3 focus:ring-[#FFB902] text-[#001232] accent-[#001232] cursor-pointer" />
               </div>
-              <label htmlFor="agreement" className="ml-3 text-sm font-medium text-[#001232] leading-snug">
-                I commit to diligently participate in this program and understand the requirements for successful completion.
+              <label htmlFor="agreement" className="ml-3 text-sm font-medium text-[#001232] leading-snug cursor-pointer">
+                I commit to diligently participate in this memorization program and understand the requirements for successful completion.
               </label>
             </div>
 
@@ -147,7 +174,7 @@ export default function RegisterPage() {
           <div className="mt-8 text-center text-sm font-medium text-gray-500">
             Already have an account?{" "}
             <Link href="/login" className="text-[#001232] font-bold hover:text-[#FFB902] transition-colors">
-              Sign in here
+              Sign in to Student Portal
             </Link>
           </div>
         </div>
