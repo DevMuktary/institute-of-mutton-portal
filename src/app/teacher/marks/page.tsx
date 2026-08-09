@@ -5,33 +5,19 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { 
-  BookOpen, Users, ArrowLeft, X, 
-  CheckCircle2, AlertCircle, Info, CalendarDays, ArrowRight, Save, LayoutGrid, Download
+  BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText
 } from "lucide-react";
 
 interface Program {
   id: string;
   titleEn: string;
-  slug: string;
   maxDailyMark: number;
-}
-
-interface DailyMark {
-  dayNumber: number;
-  score: number;
-  notes: string | null;
 }
 
 interface Student {
   id: string;
   fullName: string;
-  studentUniqueId: string;
-  dailyMarks?: DailyMark[];
-}
-
-interface MarkEntry {
-  score: string | number;
-  notes: string;
+  email: string; // Using email in place of the old 'username'
 }
 
 // Custom Toast
@@ -66,22 +52,19 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
   );
 };
 
-export default function TeacherMarksModule() {
+export default function TeacherDailyMarks() {
   const router = useRouter();
   
   const [programs, setPrograms] = useState<Program[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   
-  const [activeTab, setActiveTab] = useState<"ENTRY" | "MATRIX">("ENTRY");
-
-  // Daily Entry State
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedDay, setSelectedDay] = useState<number>(1);
-  const [marksData, setMarksData] = useState<Record<string, MarkEntry>>({});
+  const [marksData, setMarksData] = useState<Record<string, string>>({}); // Store scores as strings for exact input control
   
-  // Matrix State
-  const [matrixStudents, setMatrixStudents] = useState<Student[]>([]);
-  const [matrixMaxDay, setMatrixMaxDay] = useState<number>(0);
+  // Filtering State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "marked" | "unmarked">("all");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
@@ -110,36 +93,27 @@ export default function TeacherMarksModule() {
     fetchPrograms();
   }, [router]);
 
-  // Load Data based on active tab
+  // Load Students and Existing Marks when Program or Day changes
   useEffect(() => {
     if (!selectedProgram) return;
     
-    const fetchData = async () => {
+    const fetchClassData = async () => {
       setIsStudentsLoading(true);
       try {
-        if (activeTab === "ENTRY") {
-          const resStudents = await fetch(`/api/teacher/dashboard?programId=${selectedProgram.id}`);
-          const resMarks = await fetch(`/api/teacher/marks/bulk?programId=${selectedProgram.id}&dayNumber=${selectedDay}`);
+        const resStudents = await fetch(`/api/teacher/dashboard?programId=${selectedProgram.id}`);
+        const resMarks = await fetch(`/api/teacher/marks/bulk?programId=${selectedProgram.id}&dayNumber=${selectedDay}`);
+        
+        if (resStudents.ok && resMarks.ok) {
+          const jsonStudents = await resStudents.json();
+          const jsonMarks = await resMarks.json();
           
-          if (resStudents.ok && resMarks.ok) {
-            const jsonStudents = await resStudents.json();
-            const jsonMarks = await resMarks.json();
-            
-            setStudents(jsonStudents.data);
-            const marksMap: Record<string, MarkEntry> = {};
-            jsonMarks.data.forEach((mark: any) => {
-              marksMap[mark.studentId] = { score: mark.score, notes: mark.notes || "" };
-            });
-            setMarksData(marksMap);
-          }
-        } else {
-          // Fetch Matrix Data
-          const resMatrix = await fetch(`/api/teacher/marks/matrix?programId=${selectedProgram.id}`);
-          if (resMatrix.ok) {
-            const jsonMatrix = await resMatrix.json();
-            setMatrixStudents(jsonMatrix.data.students);
-            setMatrixMaxDay(jsonMatrix.data.maxDay);
-          }
+          setStudents(jsonStudents.data);
+          
+          const marksMap: Record<string, string> = {};
+          jsonMarks.data.forEach((mark: any) => {
+            marksMap[mark.studentId] = mark.score.toString();
+          });
+          setMarksData(marksMap);
         }
       } catch (err) {
         console.error("Failed to load class data");
@@ -147,37 +121,47 @@ export default function TeacherMarksModule() {
         setIsStudentsLoading(false);
       }
     };
-    fetchData();
-  }, [selectedProgram, selectedDay, activeTab]);
+    fetchClassData();
+  }, [selectedProgram, selectedDay]);
 
-  const handleMarkChange = (studentId: string, field: "score" | "notes", value: string) => {
-    setMarksData(prev => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        [field]: value
-      }
-    }));
+  const handleScoreChange = (studentId: string, value: string) => {
+    setMarksData(prev => ({ ...prev, [studentId]: value }));
   };
 
-  const handleSaveAll = async () => {
+  const handleMarkAllZero = () => {
+    let updatedCount = 0;
+    const newMarksData = { ...marksData };
+
+    filteredStudents.forEach(student => {
+      const currentScore = marksData[student.id];
+      if (currentScore === undefined || currentScore.trim() === "") {
+        newMarksData[student.id] = "0";
+        updatedCount++;
+      }
+    });
+
+    if (updatedCount > 0) {
+      setMarksData(newMarksData);
+      setToastType("info");
+      setToastMessage(`${updatedCount} unmarked students set to 0. Please click 'Save All Marks'.`);
+    } else {
+      setToastType("info");
+      setToastMessage("No visible unmarked students to update.");
+    }
+  };
+
+  const handleSaveAll = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedProgram) return;
     setIsSaving(true);
 
     const payloadMarks = Object.entries(marksData)
-      .filter(([_, data]) => data.score !== "" && data.score !== undefined)
-      .map(([studentId, data]) => ({
+      .filter(([_, score]) => score.trim() !== "")
+      .map(([studentId, score]) => ({
         studentId,
-        score: data.score,
-        notes: data.notes
+        score: score,
+        notes: null // Removed from your old PHP logic
       }));
-
-    if (payloadMarks.length === 0) {
-      setToastType("info");
-      setToastMessage("No marks entered to save.");
-      setIsSaving(false);
-      return;
-    }
 
     try {
       const res = await fetch("/api/teacher/marks/bulk", {
@@ -193,301 +177,225 @@ export default function TeacherMarksModule() {
       if (!res.ok) throw new Error();
       
       setToastType("success");
-      setToastMessage(`Day ${selectedDay} marks saved successfully!`);
+      setToastMessage(`Daily marks for Day ${selectedDay} saved successfully! (${payloadMarks.length} students updated).`);
     } catch (err) {
       setToastType("error");
-      setToastMessage("Failed to save marks. Check connection.");
+      setToastMessage("Database error. Failed to save marks.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Helper to generate CSV
-  const exportMatrixToCSV = () => {
-    if (!selectedProgram || matrixStudents.length === 0) return;
-
-    let csvContent = "data:text/csv;charset=utf-8,";
+  // 1:1 PHP Filtering Logic
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = 
+      student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      student.email.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Build Headers
-    const headers = ["Student Name", "Student ID"];
-    for (let i = 1; i <= matrixMaxDay; i++) headers.push(`Day ${i}`);
-    headers.push("Total Score");
-    csvContent += headers.join(",") + "\n";
+    const isMarked = marksData[student.id] !== undefined && marksData[student.id].trim() !== "";
+    const matchesStatus = 
+      statusFilter === "all" || 
+      (statusFilter === "marked" && isMarked) || 
+      (statusFilter === "unmarked" && !isMarked);
 
-    // Build Rows
-    matrixStudents.forEach(student => {
-      const row = [student.fullName, student.studentUniqueId || "N/A"];
-      let total = 0;
-      
-      for (let i = 1; i <= matrixMaxDay; i++) {
-        const mark = student.dailyMarks?.find(m => m.dayNumber === i);
-        if (mark) {
-          row.push(mark.score.toString());
-          total += mark.score;
-        } else {
-          row.push("-");
-        }
-      }
-      row.push(total.toString());
-      csvContent += row.join(",") + "\n";
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${selectedProgram.slug}_gradebook.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    return matchesSearch && matchesStatus;
+  });
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center">
+      <div className="min-h-screen bg-[#f1f5f9] flex justify-center items-center">
         <div className="w-12 h-12 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col w-full font-sans relative">
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col w-full font-sans relative text-[#1e293b]">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
 
-      {/* Navbar */}
-      <nav className="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50 shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-3">
-              <div className="w-11 h-11 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center p-1.5 shrink-0">
-                <Image src="/mutoon-logo.png" alt="Logo" width={28} height={28} className="object-contain" priority />
-              </div>
-              <span className="font-extrabold text-[#001232] text-[16px] sm:text-lg tracking-tight">
-                Institute of Mutoon
-              </span>
-            </div>
-            
-            <Link 
-              href="/teacher"
-              className="flex items-center text-sm font-bold text-gray-500 hover:text-[#001232] transition-colors bg-gray-50 hover:bg-gray-100 px-4 py-2.5 rounded-xl border border-gray-100"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Back to Hub</span>
-              <span className="sm:hidden">Back</span>
-            </Link>
+      {/* Navbar replicating the top-bar */}
+      <nav className="w-full bg-white border-b border-[#e2e8f0] shadow-sm sticky top-0 z-50 shrink-0">
+        <div className="px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#001232] m-0">Daily Memorization Marks</h1>
           </div>
+          <Link 
+            href="/teacher"
+            className="flex items-center text-sm font-bold text-white bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" /> Hub
+          </Link>
         </div>
       </nav>
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col min-w-0">
+      <main className="flex-grow w-full max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col min-w-0">
         
         {!selectedProgram ? (
-          /* View 1: Program Selection */
-          <div className="flex flex-col min-w-0 max-w-5xl mx-auto w-full">
-            <div className="mb-8 flex items-center space-x-3">
-              <div className="p-3 bg-[#001232]/5 rounded-xl text-[#001232]">
-                <CalendarDays className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#001232] tracking-tight">Gradebook & Marks</h1>
-                <p className="text-gray-500 mt-1 text-[15px] font-medium">Select a program below to log marks or view the master matrix.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {programs.map((program) => (
-                <div 
-                  key={program.id}
-                  onClick={() => setSelectedProgram(program)}
-                  className="bg-white border border-gray-200 rounded-2xl p-6 hover:border-[#FFB902] hover:shadow-lg transition-all cursor-pointer flex flex-col h-full group"
-                >
-                  <div className="w-12 h-12 bg-gray-50 text-gray-400 rounded-xl flex items-center justify-center mb-4 border border-gray-100 group-hover:bg-[#001232] group-hover:text-[#FFB902] group-hover:border-[#001232] transition-all">
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                  <h3 dir="auto" className="text-[17px] font-bold text-[#001232] mb-2 break-words">{program.titleEn}</h3>
-                  <p className="text-sm font-semibold text-gray-500 flex-grow">Max Score: {program.maxDailyMark}</p>
+          /* Program Selection (Adapted to match the flow) */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {programs.map((program) => (
+              <div 
+                key={program.id}
+                onClick={() => setSelectedProgram(program)}
+                className="bg-white border border-[#e2e8f0] rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-shadow"
+              >
+                <div className="flex items-center mb-4">
+                  <BookOpen className="w-8 h-8 text-[#FFB902] mr-3" />
+                  <h3 dir="auto" className="text-lg font-bold text-[#001232]">{program.titleEn}</h3>
                 </div>
-              ))}
-            </div>
+                <button className="w-full bg-[#001232] text-white py-2 rounded-lg font-semibold mt-2">
+                  Select Program
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
-          /* View 2: Register/Matrix Tabs */
-          <div className="flex flex-col min-w-0">
+          /* Replica of daily_marks.php layout */
+          <div className="flex flex-col min-w-0 space-y-6">
             
-            <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
-                <button 
-                  onClick={() => { setSelectedProgram(null); setMarksData({}); }}
-                  className="flex items-center text-sm font-bold text-gray-400 hover:text-[#001232] transition-colors mb-3"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-1.5" /> Change Program
-                </button>
-                <h1 dir="auto" className="text-2xl sm:text-3xl font-extrabold text-[#001232] tracking-tight leading-snug break-words">
-                  {selectedProgram.titleEn}
-                </h1>
-              </div>
+            {/* Generate PDF Card */}
+            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm text-center p-6">
+              <p className="mt-0 mb-4 text-[#1e293b]">Generate a PDF of the final program results, including daily and exam scores.</p>
+              <button 
+                onClick={() => {
+                  setToastType("info");
+                  setToastMessage("PDF Generation script integration coming soon.");
+                }}
+                className="inline-flex items-center bg-[#FFB902] text-[#001232] px-5 py-2.5 rounded-lg font-bold hover:bg-[#e0a200] transition-colors"
+              >
+                <FileText className="w-4 h-4 mr-2" /> Generate Final Results PDF
+              </button>
+            </div>
 
-              {/* Tab Switcher */}
-              <div className="flex bg-gray-200/50 p-1 rounded-xl shrink-0 self-start md:self-end">
-                <button 
-                  onClick={() => setActiveTab("ENTRY")}
-                  className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "ENTRY" ? "bg-white text-[#001232] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                >
-                  <CalendarDays className="w-4 h-4 mr-2" /> Daily Entry
-                </button>
-                <button 
-                  onClick={() => setActiveTab("MATRIX")}
-                  className={`flex items-center px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === "MATRIX" ? "bg-[#001232] text-[#FFB902] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                >
-                  <LayoutGrid className="w-4 h-4 mr-2" /> Master Gradebook
-                </button>
+            {/* Select Day Card */}
+            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm">
+              <div className="p-5 border-b border-[#e2e8f0]">
+                <h3 className="m-0 text-lg font-semibold">Select Day</h3>
+              </div>
+              <div className="p-5 flex items-center gap-4 flex-wrap">
+                <label className="font-medium">Show marks for Day #:</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  value={selectedDay}
+                  onChange={(e) => setSelectedDay(parseInt(e.target.value) || 1)}
+                  className="w-24 px-3 py-2 border border-[#e2e8f0] rounded-lg text-center font-bold text-lg outline-none focus:border-[#001232]"
+                />
               </div>
             </div>
 
-            {/* --- TAB 1: DAILY ENTRY --- */}
-            {activeTab === "ENTRY" && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
-                  <div className="flex items-center bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm">
-                    <label className="text-sm font-bold text-gray-500 mr-3">Select Day</label>
-                    <input 
-                      type="number" 
-                      min="1"
-                      value={selectedDay}
-                      onChange={(e) => setSelectedDay(parseInt(e.target.value) || 1)}
-                      className="w-16 text-lg font-extrabold text-[#001232] bg-transparent outline-none text-center"
-                    />
-                  </div>
-                  <button 
-                    onClick={handleSaveAll}
-                    disabled={isSaving || isStudentsLoading}
-                    className="flex items-center px-6 py-2.5 bg-[#001232] text-white rounded-xl font-bold hover:bg-[#001232]/90 transition-all shadow-md disabled:opacity-70"
-                  >
-                    {isSaving ? "Saving..." : <><Save className="w-4 h-4 mr-2" /> Save Marks</>}
-                  </button>
-                </div>
-
-                {isStudentsLoading ? (
-                  <div className="p-16 flex justify-center">
-                    <div className="w-10 h-10 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin"></div>
-                  </div>
-                ) : (
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
-                      <thead>
-                        <tr className="bg-gray-50/80 border-b border-gray-100">
-                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-1/4">Student Name</th>
-                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-1/6">Student ID</th>
-                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-1/6">Score (Max: {selectedProgram.maxDailyMark})</th>
-                          <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Assignment / Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {students.map((student) => (
-                          <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="p-4 font-extrabold text-[#001232] text-[15px]">{student.fullName}</td>
-                            <td className="p-4 text-sm font-medium text-gray-500">{student.studentUniqueId || "Pending"}</td>
-                            <td className="p-4">
-                              <input 
-                                type="number"
-                                min="0" max={selectedProgram.maxDailyMark} step="0.5"
-                                value={marksData[student.id]?.score ?? ""}
-                                onChange={(e) => handleMarkChange(student.id, "score", e.target.value)}
-                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFB902] outline-none font-bold text-[#001232] text-center"
-                              />
-                            </td>
-                            <td className="p-4">
-                              <input 
-                                type="text"
-                                value={marksData[student.id]?.notes ?? ""}
-                                onChange={(e) => handleMarkChange(student.id, "notes", e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#FFB902] outline-none text-sm text-[#001232]"
-                                dir="auto"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+            {isStudentsLoading ? (
+              <div className="p-12 flex justify-center bg-white rounded-xl shadow-sm">
+                <div className="w-8 h-8 border-4 border-[#e2e8f0] border-t-[#001232] rounded-full animate-spin"></div>
               </div>
-            )}
-
-            {/* --- TAB 2: MASTER GRADEBOOK MATRIX --- */}
-            {activeTab === "MATRIX" && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
-                  <p className="text-sm font-bold text-gray-500">Holistic view of all logged days.</p>
-                  <button 
-                    onClick={exportMatrixToCSV}
-                    className="flex items-center px-5 py-2.5 bg-green-50 border border-green-200 text-green-700 rounded-xl font-bold hover:bg-green-100 transition-all shadow-sm"
-                  >
-                    <Download className="w-4 h-4 mr-2" /> Export to CSV
-                  </button>
+            ) : students.length === 0 ? (
+              <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-6 text-center">
+                <p>No students found.</p>
+              </div>
+            ) : (
+              /* Enter Marks Card */
+              <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div className="p-5 border-b border-[#e2e8f0]">
+                  <h3 className="m-0 text-lg font-semibold">Enter Marks for Day {selectedDay}</h3>
+                </div>
+                
+                {/* Controls Grid */}
+                <div className="p-5 bg-[#f8fafc] border-b border-[#e2e8f0]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-end">
+                    <div>
+                      <label className="block font-medium mb-2">Search Students</label>
+                      <input 
+                        type="text" 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="By name or email..."
+                        className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg outline-none focus:border-[#001232]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-2">Filter by Status</label>
+                      <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value as any)}
+                        className="w-full px-4 py-2 border border-[#e2e8f0] rounded-lg outline-none focus:border-[#001232] bg-white"
+                      >
+                        <option value="all">All</option>
+                        <option value="marked">Marked</option>
+                        <option value="unmarked">Unmarked</option>
+                      </select>
+                    </div>
+                    <div>
+                      <button 
+                        type="button"
+                        onClick={handleMarkAllZero}
+                        className="w-full bg-[#64748b] text-white px-4 py-2 rounded-lg font-bold hover:bg-[#475569] transition-colors"
+                      >
+                        Mark All Unmarked as 0
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                {isStudentsLoading ? (
-                  <div className="p-16 flex justify-center">
-                    <div className="w-10 h-10 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin"></div>
-                  </div>
-                ) : (
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full text-center border-collapse min-w-max">
-                      <thead>
-                        <tr className="bg-gray-50/80 border-b border-gray-200">
-                          <th className="p-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50/95 shadow-[1px_0_0_0_#e5e7eb]">Student Name</th>
-                          {Array.from({ length: matrixMaxDay }).map((_, i) => (
-                            <th key={i} className="p-4 text-xs font-bold text-[#001232] uppercase tracking-wider border-l border-gray-100 min-w-[80px]">
-                              Day {i + 1}
-                            </th>
-                          ))}
-                          <th className="p-4 text-xs font-extrabold text-[#FFB902] uppercase tracking-wider border-l border-gray-200 bg-[#001232]/5">Total</th>
+                {/* Form & Table */}
+                <form onSubmit={handleSaveAll} className="flex flex-col min-h-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-[#f1f5f9] sticky top-0">
+                        <tr>
+                          <th className="p-4 font-semibold text-[#1e293b] border-b border-[#e2e8f0]">Student Info</th>
+                          <th className="p-4 font-semibold text-[#1e293b] border-b border-[#e2e8f0] text-center w-32">Mark (0-{selectedProgram.maxDailyMark})</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {matrixStudents.map((student) => {
-                          let totalScore = 0;
+                      <tbody>
+                        {filteredStudents.map((student) => {
+                          const isFilled = marksData[student.id] !== undefined && marksData[student.id].trim() !== "";
                           return (
-                            <tr key={student.id} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="p-4 text-left font-extrabold text-[#001232] text-[14px] sticky left-0 bg-white shadow-[1px_0_0_0_#e5e7eb] truncate max-w-[200px]" dir="auto">
-                                {student.fullName}
+                            <tr key={student.id} className="border-b border-[#e2e8f0] hover:bg-[#f8fafc]">
+                              <td className="p-4">
+                                <div dir="auto" className="font-semibold text-[1.1rem] mb-1">{student.fullName}</div>
+                                <div className="text-sm text-[#64748b]">{student.email}</div>
                               </td>
-                              {Array.from({ length: matrixMaxDay }).map((_, i) => {
-                                const mark = student.dailyMarks?.find(m => m.dayNumber === i + 1);
-                                if (mark) totalScore += mark.score;
-                                return (
-                                  <td key={i} className="p-4 text-sm font-semibold text-gray-600 border-l border-gray-50">
-                                    {mark ? (
-                                      <span className={mark.score < (selectedProgram.maxDailyMark / 2) ? "text-red-500" : ""}>{mark.score}</span>
-                                    ) : (
-                                      <span className="text-gray-300">-</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                              <td className="p-4 text-[15px] font-extrabold text-[#001232] border-l border-gray-200 bg-[#001232]/5">
-                                {totalScore}
+                              <td className="p-4 text-center">
+                                <input 
+                                  type="number"
+                                  min="0"
+                                  max={selectedProgram.maxDailyMark}
+                                  step="1"
+                                  value={marksData[student.id] ?? ""}
+                                  onChange={(e) => handleScoreChange(student.id, e.target.value)}
+                                  placeholder="--"
+                                  className={`w-20 text-center p-2 border border-[#e2e8f0] rounded-md text-lg outline-none focus:border-[#001232] ${isFilled ? 'bg-[#dcfce7]' : 'bg-white'}`}
+                                />
                               </td>
                             </tr>
                           );
                         })}
+                        {filteredStudents.length === 0 && (
+                          <tr>
+                            <td colSpan={2} className="p-8 text-center text-[#64748b]">No students match your search/filter criteria.</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
-                )}
+                  
+                  {/* Submission Bar */}
+                  <div className="sticky bottom-0 bg-white/90 backdrop-blur-md p-4 border-t border-[#e2e8f0] text-right shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                    <button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="bg-[#001232] text-white px-6 py-2.5 rounded-lg font-bold hover:bg-[#001232]/90 transition-all disabled:opacity-70"
+                    >
+                      {isSaving ? "Saving..." : `Save All Marks for Day ${selectedDay}`}
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
-
           </div>
         )}
       </main>
-
-      <footer className="w-full py-8 border-t border-gray-200 bg-white text-center shrink-0 mt-auto">
-        <p className="text-xs font-medium text-gray-400">
-          &copy; {new Date().getFullYear()} Quadrox Technologies Limited
-        </p>
-      </footer>
-
+      
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
