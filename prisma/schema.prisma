@@ -19,22 +19,27 @@ enum ApprovalStatus {
 }
 
 model User {
-  id             String         @id @default(uuid())
-  email          String         @unique
-  password       String
-  fullName       String
-  role           Role           @default(STUDENT)
-  approvalStatus ApprovalStatus @default(APPROVED)
-  mustResetPass  Boolean        @default(true)
-  isBlocked      Boolean        @default(false)
-  programId      String?
-  program        Program?       @relation(fields: [programId], references: [id], onDelete: SetNull)
-  dailyMarks     DailyMark[]
-  examMarks      ExamMark[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id               String         @id @default(uuid())
+  email            String         @unique
+  password         String
+  fullName         String
+  phoneNumber      String?
+  country          String?
+  dob              String?
+  gender           String?
+  islamicKnowledge String?
+  arabicLevel      String?
+  role             Role           @default(STUDENT)
+  approvalStatus   ApprovalStatus @default(APPROVED)
+  mustResetPass    Boolean        @default(true)
+  isBlocked        Boolean        @default(false)
+  programId        String?
+  program          Program?       @relation(fields: [programId], references: [id], onDelete: SetNull)
+  dailyMarks       DailyMark[]
+  examMarks        ExamMark[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
-
 model Program {
   id               String        @id @default(uuid())
   titleEn          String
