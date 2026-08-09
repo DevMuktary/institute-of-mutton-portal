@@ -42,6 +42,7 @@ model User {
 }
 model Program {
   id               String        @id @default(uuid())
+  slug             String        @unique // Added for URL routing
   titleEn          String
   titleAr          String?
   maxDailyMark     Int           @default(100)
