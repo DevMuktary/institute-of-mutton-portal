@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -21,7 +20,7 @@ enum ApprovalStatus {
 
 model User {
   id               String       @id @default(uuid())
-  studentUniqueId  String?      @unique // Brought over from your old 'students' table
+  studentUniqueId  String?      @unique 
   email            String       @unique
   password         String
   fullName         String
@@ -36,7 +35,7 @@ model User {
   isBlocked        Boolean      @default(false)
   enrollments      Enrollment[]
   dailyMarks       DailyMark[]  @relation("StudentMarks")
-  markedMarks      DailyMark[]  @relation("TeacherMarks") // Tracks which teacher gave the mark
+  markedMarks      DailyMark[]  @relation("TeacherMarks") 
   examMarks        ExamMark[]
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
@@ -81,13 +80,13 @@ model DailyMark {
   programId   String
   program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
   
-  dayNumber   Int      // Replaces dayLabel to allow chronological spreadsheet sorting
+  dayNumber   Int      
   score       Float
-  notes       String?  // Optional teacher feedback
+  notes       String?  
   
   date        DateTime @default(now())
 
-  @@unique([studentId, programId, dayNumber]) // Prevents a student from having two scores for "Day 1"
+  @@unique([studentId, programId, dayNumber]) 
 }
 
 model ExamMark {
