@@ -80,7 +80,7 @@ model DailyMark {
   programId   String
   program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
   
-  dayNumber   Int      
+  dayNumber   Int      @default(1)
   score       Float
   notes       String?  
   
