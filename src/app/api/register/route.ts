@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       newUser.email, 
       newUser.fullName, 
       program.titleEn, 
-      newUser.approvalStatus, 
+      isApproved ? "APPROVED" : "PENDING",
       isApproved ? plainPassword : undefined
     );
 
