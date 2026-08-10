@@ -35,7 +35,7 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
   const Icon = currentStyle.icon;
 
   return (
-    <div className="fixed top-20 right-4 sm:right-8 z-[9999] animate-slide-in max-w-[90vw]">
+    <div className="fixed top-24 right-4 sm:right-8 z-[9999] animate-slide-in max-w-[90vw]">
       <div className={`bg-white border-l-4 shadow-2xl rounded-r-xl p-4 flex items-start w-80 max-w-full ${currentStyle.border}`}>
         <Icon className={`h-5 w-5 flex-shrink-0 mt-0.5 ${currentStyle.iconText}`} />
         <p className={`ml-3 text-sm font-semibold break-words w-full ${currentStyle.text}`}>{message}</p>
@@ -62,7 +62,6 @@ const StudentMarkRow = memo(({
   const [value, setValue] = useState(initialScore);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
 
-  // Sync if parent updates (e.g., Mark All 0)
   useEffect(() => {
     setValue(initialScore);
     setStatus(initialScore !== "" ? "success" : "idle");
@@ -70,17 +69,16 @@ const StudentMarkRow = memo(({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value;
-    // Strict Regex: Only allow numbers or empty string (Fixes the "can't delete" bug)
     if (rawVal === "" || /^[0-9]+$/.test(rawVal)) {
-      if (rawVal !== "" && parseInt(rawVal) > maxMark) return; // Prevent typing over max
+      if (rawVal !== "" && parseInt(rawVal) > maxMark) return; 
       setValue(rawVal);
       setStatus("idle");
     }
   };
 
   const handleBlurOrEnter = async () => {
-    if (value === initialScore) return; // No change made
-    if (value.trim() === "") return; // Don't save empty marks automatically
+    if (value === initialScore) return; 
+    if (value.trim() === "") return; 
 
     setStatus("saving");
     const success = await onSaveSingle(student.id, value);
@@ -89,7 +87,7 @@ const StudentMarkRow = memo(({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      e.currentTarget.blur(); // Trigger the onBlur save
+      e.currentTarget.blur();
     }
   };
 
@@ -101,7 +99,6 @@ const StudentMarkRow = memo(({
       </div>
       
       <div className="flex items-center gap-3 self-end sm:self-auto">
-        {/* Status Indicator */}
         <div className="w-6 flex justify-center">
           {status === "saving" && <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />}
           {status === "success" && <CheckCircle2 className="w-5 h-5 text-green-500" />}
@@ -135,6 +132,7 @@ export default function TeacherDailyMarks() {
   
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [totalDays, setTotalDays] = useState<number>(1); 
   const [marksData, setMarksData] = useState<Record<string, string>>({}); 
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -145,6 +143,28 @@ export default function TeacherDailyMarks() {
   const [isBulkSaving, setIsBulkSaving] = useState(false);
 
   const [toast, setToast] = useState<{msg: string, type: "error"|"success"|"info"} | null>(null);
+
+  // Scroll visibility state for smart navbar
+  const [showNav, setShowNav] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  // Listen to scroll events to hide/show navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Hide if scrolling down and past 50px, show if scrolling up
+      if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        setShowNav(false);
+      } else {
+        setShowNav(true);
+      }
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
 
   // Load Programs
   useEffect(() => {
@@ -210,7 +230,6 @@ export default function TeacherDailyMarks() {
       });
       if (!res.ok) throw new Error();
       
-      // Update central state purely for filtering purposes
       setMarksData(prev => ({ ...prev, [studentId]: score }));
       return true;
     } catch (error) {
@@ -282,7 +301,12 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b]">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      <nav className="w-full bg-white border-b border-[#e2e8f0] shadow-sm sticky top-0 z-50">
+      {/* Smart Navbar: fixed instead of sticky, with translate transition */}
+      <nav 
+        className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${
+          showNav ? "translate-y-0" : "-translate-y-full"
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#001232]">Marking Matrix</h1>
           <Link href="/teacher" className="flex items-center text-sm font-bold text-[#475569] bg-[#f1f5f9] hover:bg-[#e2e8f0] px-4 py-2 rounded-lg transition-colors">
@@ -291,7 +315,8 @@ export default function TeacherDailyMarks() {
         </div>
       </nav>
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* Main content pushed down to account for the fixed navbar (pt-24 instead of py-8) */}
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8">
         
         {!selectedProgram ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -331,9 +356,9 @@ export default function TeacherDailyMarks() {
               </button>
             </div>
 
-            {/* Days Ribbon */}
-            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-2 flex overflow-x-auto gap-2 no-scrollbar">
-              {[...Array(30)].map((_, i) => {
+            {/* Dynamic Days Ribbon */}
+            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-2 flex overflow-x-auto gap-2 items-center no-scrollbar">
+              {[...Array(totalDays)].map((_, i) => {
                 const day = i + 1;
                 return (
                   <button
@@ -345,6 +370,17 @@ export default function TeacherDailyMarks() {
                   </button>
                 )
               })}
+              
+              <button
+                onClick={() => {
+                  const nextDay = totalDays + 1;
+                  setTotalDays(nextDay);
+                  setSelectedDay(nextDay);
+                }}
+                className="flex-shrink-0 flex items-center px-4 py-2.5 rounded-lg font-bold text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200 ml-2"
+              >
+                <span className="text-lg mr-1 leading-none">+</span> Add Day
+              </button>
             </div>
 
             {/* Controls Bar */}
