@@ -153,7 +153,6 @@ export default function TeacherDailyMarks() {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       
-      // Hide if scrolling down and past 50px, show if scrolling up
       if (currentScrollY > lastScrollY && currentScrollY > 50) {
         setShowNav(false);
       } else {
@@ -183,22 +182,45 @@ export default function TeacherDailyMarks() {
     fetchPrograms();
   }, [router]);
 
-  // Load Class Data when Program/Day changes
+  // 1. When a Program is selected, fetch students AND find out how many days already exist
   useEffect(() => {
     if (!selectedProgram) return;
     
-    const fetchClassData = async () => {
+    const initProgram = async () => {
       setIsStudentsLoading(true);
       try {
+        // Fetch the students
         const resStudents = await fetch(`/api/teacher/dashboard?programId=${selectedProgram.id}`);
+        if (resStudents.ok) {
+          const jsonStudents = await resStudents.json();
+          setStudents(jsonStudents.data);
+        }
+
+        // Fetch the maximum day they have already worked on
+        const resDays = await fetch(`/api/teacher/marks/days?programId=${selectedProgram.id}`);
+        if (resDays.ok) {
+          const jsonDays = await resDays.json();
+          setTotalDays(jsonDays.maxDay); 
+          setSelectedDay(jsonDays.maxDay); 
+        }
+      } catch (err) {
+        setToast({ msg: "Failed to load program data.", type: "error" });
+      }
+    };
+    initProgram();
+  }, [selectedProgram]);
+
+  // 2. Whenever the selected Day changes, fetch the specific marks for that day
+  useEffect(() => {
+    if (!selectedProgram) return;
+
+    const fetchMarks = async () => {
+      setIsStudentsLoading(true);
+      try {
         const resMarks = await fetch(`/api/teacher/marks/bulk?programId=${selectedProgram.id}&dayNumber=${selectedDay}`);
         
-        if (resStudents.ok && resMarks.ok) {
-          const jsonStudents = await resStudents.json();
+        if (resMarks.ok) {
           const jsonMarks = await resMarks.json();
-          
-          setStudents(jsonStudents.data);
-          
           const marksMap: Record<string, string> = {};
           jsonMarks.data.forEach((mark: any) => {
             marksMap[mark.studentId] = mark.score.toString();
@@ -206,12 +228,12 @@ export default function TeacherDailyMarks() {
           setMarksData(marksMap);
         }
       } catch (err) {
-        setToast({ msg: "Failed to load class data.", type: "error" });
+        setToast({ msg: "Failed to load marks.", type: "error" });
       } finally {
         setIsStudentsLoading(false);
       }
     };
-    fetchClassData();
+    fetchMarks();
   }, [selectedProgram, selectedDay]);
 
   // Auto-Save Single Score Handler
@@ -301,7 +323,7 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b]">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Smart Navbar: fixed instead of sticky, with translate transition */}
+      {/* Smart Navbar */}
       <nav 
         className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${
           showNav ? "translate-y-0" : "-translate-y-full"
@@ -315,7 +337,6 @@ export default function TeacherDailyMarks() {
         </div>
       </nav>
 
-      {/* Main content pushed down to account for the fixed navbar (pt-24 instead of py-8) */}
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8">
         
         {!selectedProgram ? (
