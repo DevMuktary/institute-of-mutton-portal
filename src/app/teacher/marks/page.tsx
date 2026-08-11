@@ -3,6 +3,8 @@
 import { useState, useEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { 
   BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText, Loader2, Save
 } from "lucide-react";
@@ -47,7 +49,7 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
   );
 };
 
-// --- 2. Isolated Row Component for Auto-Save & Performance ---
+// --- 2. Isolated Row Component for Auto-Save ---
 const StudentMarkRow = memo(({ 
   student, 
   programId,
@@ -86,9 +88,7 @@ const StudentMarkRow = memo(({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.currentTarget.blur();
-    }
+    if (e.key === "Enter") e.currentTarget.blur();
   };
 
   return (
@@ -141,26 +141,20 @@ export default function TeacherDailyMarks() {
   const [isLoading, setIsLoading] = useState(true);
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const [toast, setToast] = useState<{msg: string, type: "error"|"success"|"info"} | null>(null);
 
-  // Scroll visibility state for smart navbar
   const [showNav, setShowNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  // Listen to scroll events to hide/show navbar
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
-      if (currentScrollY > lastScrollY && currentScrollY > 50) {
-        setShowNav(false);
-      } else {
-        setShowNav(true);
-      }
+      if (currentScrollY > lastScrollY && currentScrollY > 50) setShowNav(false);
+      else setShowNav(true);
       setLastScrollY(currentScrollY);
     };
-
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
@@ -170,7 +164,7 @@ export default function TeacherDailyMarks() {
     const fetchPrograms = async () => {
       try {
         const res = await fetch("/api/teacher/dashboard");
-        if (!res.ok) throw new Error("Unauthorized");
+        if (!res.ok) throw new Error();
         const json = await res.json();
         setPrograms(json.data);
       } catch (err) {
@@ -182,21 +176,18 @@ export default function TeacherDailyMarks() {
     fetchPrograms();
   }, [router]);
 
-  // 1. When a Program is selected, fetch students AND find out how many days already exist
+  // Init Program Details
   useEffect(() => {
     if (!selectedProgram) return;
-    
     const initProgram = async () => {
       setIsStudentsLoading(true);
       try {
-        // Fetch the students
         const resStudents = await fetch(`/api/teacher/dashboard?programId=${selectedProgram.id}`);
         if (resStudents.ok) {
           const jsonStudents = await resStudents.json();
           setStudents(jsonStudents.data);
         }
 
-        // Fetch the maximum day they have already worked on
         const resDays = await fetch(`/api/teacher/marks/days?programId=${selectedProgram.id}`);
         if (resDays.ok) {
           const jsonDays = await resDays.json();
@@ -210,15 +201,13 @@ export default function TeacherDailyMarks() {
     initProgram();
   }, [selectedProgram]);
 
-  // 2. Whenever the selected Day changes, fetch the specific marks for that day
+  // Load Specific Day Marks
   useEffect(() => {
     if (!selectedProgram) return;
-
     const fetchMarks = async () => {
       setIsStudentsLoading(true);
       try {
         const resMarks = await fetch(`/api/teacher/marks/bulk?programId=${selectedProgram.id}&dayNumber=${selectedDay}`);
-        
         if (resMarks.ok) {
           const jsonMarks = await resMarks.json();
           const marksMap: Record<string, string> = {};
@@ -236,22 +225,15 @@ export default function TeacherDailyMarks() {
     fetchMarks();
   }, [selectedProgram, selectedDay]);
 
-  // Auto-Save Single Score Handler
   const handleSaveSingleScore = async (studentId: string, score: string) => {
     if (!selectedProgram) return false;
     try {
       const res = await fetch("/api/teacher/marks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId,
-          programId: selectedProgram.id,
-          dayNumber: selectedDay,
-          score: score
-        })
+        body: JSON.stringify({ studentId, programId: selectedProgram.id, dayNumber: selectedDay, score })
       });
       if (!res.ok) throw new Error();
-      
       setMarksData(prev => ({ ...prev, [studentId]: score }));
       return true;
     } catch (error) {
@@ -260,47 +242,122 @@ export default function TeacherDailyMarks() {
     }
   };
 
-  const handleMarkAllZero = () => {
-    let updatedCount = 0;
-    const newMarksData = { ...marksData };
+  const handleMarkAllZero = async () => {
+    if (!selectedProgram) return;
     const payloadMarks: any[] = [];
+    const newMarksData = { ...marksData };
 
     filteredStudents.forEach(student => {
       const currentScore = marksData[student.id];
       if (currentScore === undefined || currentScore.trim() === "") {
         newMarksData[student.id] = "0";
         payloadMarks.push({ studentId: student.id, score: "0", notes: null });
-        updatedCount++;
       }
     });
 
-    if (updatedCount > 0) {
-      setMarksData(newMarksData);
-      handleBulkSaveToAPI(payloadMarks);
-    } else {
-      setToast({ msg: "No unmarked students visible.", type: "info" });
-    }
-  };
-
-  const handleBulkSaveToAPI = async (payloadMarks: any[]) => {
-    if (!selectedProgram || payloadMarks.length === 0) return;
+    if (payloadMarks.length === 0) return setToast({ msg: "No unmarked students visible.", type: "info" });
+    
     setIsBulkSaving(true);
     try {
       const res = await fetch("/api/teacher/marks/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          programId: selectedProgram.id,
-          dayNumber: selectedDay,
-          marks: payloadMarks
-        })
+        body: JSON.stringify({ programId: selectedProgram.id, dayNumber: selectedDay, marks: payloadMarks })
       });
       if (!res.ok) throw new Error();
+      setMarksData(newMarksData);
       setToast({ msg: `Successfully marked ${payloadMarks.length} students as 0.`, type: "success" });
     } catch (err) {
       setToast({ msg: "Database error during bulk save.", type: "error" });
     } finally {
       setIsBulkSaving(false);
+    }
+  };
+
+  // --- PDF GENERATION ENGINE ---
+  const handleDownloadPDF = async () => {
+    if (!selectedProgram) return;
+    setIsGeneratingPDF(true);
+    setToast({ msg: "Calculating final results & generating PDF...", type: "info" });
+
+    try {
+      // 1. Fetch live calculated data from API
+      const res = await fetch(`/api/teacher/results?programId=${selectedProgram.id}`);
+      if (!res.ok) throw new Error();
+      const { data: results } = await res.json();
+
+      if (results.length === 0) {
+        setIsGeneratingPDF(false);
+        return setToast({ msg: "No approved students found for this program.", type: "error" });
+      }
+
+      // 2. Initialize PDF
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // Header Section
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 18, 50); // #001232
+      doc.text("Institute of Mutoon", pageWidth / 2, 25, { align: "center" });
+      
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 185, 2); // #FFB902
+      doc.text(selectedProgram.titleEn, pageWidth / 2, 35, { align: "center" });
+
+      doc.setDrawColor(0, 18, 50);
+      doc.setLineWidth(0.5);
+      doc.line(14, 42, pageWidth - 14, 42);
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 18, 50);
+      doc.text("FINAL RESULTS & RANKINGS", pageWidth / 2, 52, { align: "center" });
+
+      // Build Table Data
+      const maxExam = results[0]?.maxExamMark || 15;
+      const tableBody = results.map((row: any, index: number) => [
+        (index + 1).toString(),
+        row.fullName,
+        row.programTotalScore.toString(),
+        `${row.finalExamScore} / ${maxExam}`,
+        row.totalScore.toString()
+      ]);
+
+      autoTable(doc, {
+        startY: 60,
+        head: [['Rank', 'Full Name', 'Program Score', `Exam Score`, 'Total Score']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 18, 50], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { halign: 'center', fontStyle: 'bold' },
+          1: { halign: 'left' },
+          2: { halign: 'center' },
+          3: { halign: 'center' },
+          4: { halign: 'center', fontStyle: 'bold', fillColor: [255, 243, 205] } // Matches the yellow PHP row highlight
+        },
+        styles: { fontSize: 10, cellPadding: 4 },
+        alternateRowStyles: { fillColor: [248, 249, 250] }
+      });
+
+      // Footer
+      const finalY = (doc as any).lastAutoTable.finalY || 60;
+      doc.setFontSize(8);
+      doc.setTextColor(136, 136, 136);
+      const dateStr = new Date().toLocaleString();
+      doc.text(`Generated on: ${dateStr}`, pageWidth / 2, finalY + 15, { align: "center" });
+
+      // Trigger automatic download
+      const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
+      doc.save(`Final_Results_${cleanTitle}.pdf`);
+      
+      setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
+    } catch (err) {
+      setToast({ msg: "Failed to generate PDF. Check server logs.", type: "error" });
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -323,12 +380,7 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b]">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Smart Navbar */}
-      <nav 
-        className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${
-          showNav ? "translate-y-0" : "-translate-y-full"
-        }`}
-      >
+      <nav className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${showNav ? "translate-y-0" : "-translate-y-full"}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#001232]">Marking Matrix</h1>
           <Link href="/teacher" className="flex items-center text-sm font-bold text-[#475569] bg-[#f1f5f9] hover:bg-[#e2e8f0] px-4 py-2 rounded-lg transition-colors">
@@ -338,7 +390,6 @@ export default function TeacherDailyMarks() {
       </nav>
 
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8">
-        
         {!selectedProgram ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {programs.map((program) => (
@@ -358,7 +409,6 @@ export default function TeacherDailyMarks() {
         ) : (
           <div className="flex flex-col space-y-6">
             
-            {/* Header Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <button onClick={() => setSelectedProgram(null)} className="text-sm font-semibold text-[#64748b] hover:text-[#001232] flex items-center mb-2">
@@ -370,28 +420,27 @@ export default function TeacherDailyMarks() {
                 </h2>
               </div>
               <button 
-                onClick={() => setToast({msg: "PDF Engine loading...", type: "info"})}
-                className="inline-flex items-center bg-white border border-[#e2e8f0] text-[#001232] px-4 py-2.5 rounded-lg font-bold hover:bg-[#f8fafc] transition-colors shadow-sm w-full sm:w-auto justify-center"
+                onClick={handleDownloadPDF}
+                disabled={isGeneratingPDF}
+                className="inline-flex items-center bg-white border border-[#e2e8f0] text-[#001232] px-4 py-2.5 rounded-lg font-bold hover:bg-[#f8fafc] transition-colors shadow-sm w-full sm:w-auto justify-center disabled:opacity-50"
               >
-                <FileText className="w-4 h-4 mr-2 text-[#FFB902]" /> Final PDF
+                {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 text-[#FFB902] animate-spin" /> : <FileText className="w-4 h-4 mr-2 text-[#FFB902]" />}
+                {isGeneratingPDF ? "Generating..." : "Final PDF Results"}
               </button>
             </div>
 
-            {/* Dynamic Days Ribbon */}
             <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-2 flex overflow-x-auto gap-2 items-center no-scrollbar">
               {[...Array(totalDays)].map((_, i) => {
                 const day = i + 1;
                 return (
                   <button
-                    key={day}
-                    onClick={() => setSelectedDay(day)}
+                    key={day} onClick={() => setSelectedDay(day)}
                     className={`flex-shrink-0 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors ${selectedDay === day ? 'bg-[#001232] text-white' : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'}`}
                   >
                     Day {day}
                   </button>
                 )
               })}
-              
               <button
                 onClick={() => {
                   const nextDay = totalDays + 1;
@@ -404,7 +453,6 @@ export default function TeacherDailyMarks() {
               </button>
             </div>
 
-            {/* Controls Bar */}
             <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-4 sm:p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto flex-grow">
                 <input 
@@ -422,8 +470,7 @@ export default function TeacherDailyMarks() {
                 </select>
               </div>
               <button 
-                onClick={handleMarkAllZero}
-                disabled={isBulkSaving}
+                onClick={handleMarkAllZero} disabled={isBulkSaving}
                 className="w-full md:w-auto bg-[#f1f5f9] border border-[#e2e8f0] text-[#475569] px-5 py-2.5 rounded-lg font-bold hover:bg-[#e2e8f0] transition-colors flex items-center justify-center disabled:opacity-50"
               >
                 {isBulkSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
@@ -431,7 +478,6 @@ export default function TeacherDailyMarks() {
               </button>
             </div>
 
-            {/* Students List */}
             <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm overflow-hidden flex flex-col">
               <div className="hidden sm:flex bg-[#f8fafc] border-b border-[#e2e8f0] p-4 text-sm font-bold text-[#64748b] uppercase tracking-wider">
                 <div className="flex-grow">Student Details</div>
