@@ -16,9 +16,14 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { identifier, password } = body; // identifier can be email or phone
+    
+    // Extract both possible keys to ensure compatibility with both Student and Teacher logins
+    const { identifier, email, password } = body; 
+    
+    // Use whichever key the frontend sent
+    const loginId = identifier || email;
 
-    if (!identifier || !password) {
+    if (!loginId || !password) {
       return NextResponse.json({ success: false, error: "Please provide both email/phone and password." }, { status: 400 });
     }
 
@@ -26,8 +31,8 @@ export async function POST(request: Request) {
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { email: identifier },
-          { phoneNumber: identifier }
+          { email: loginId },
+          { phoneNumber: loginId }
         ]
       }
     });
