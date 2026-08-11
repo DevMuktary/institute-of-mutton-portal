@@ -35,8 +35,7 @@ export async function GET(request: NextRequest) {
     const enrollments = await prisma.enrollment.findMany({
       where: { programId, approvalStatus: "APPROVED" },
       include: {
-        user: { select: { id: true, fullName: true } },
-        program: { select: { maxExamMark: true } }
+        user: { select: { id: true, fullName: true } }
       }
     });
 
@@ -45,44 +44,30 @@ export async function GET(request: NextRequest) {
     }
 
     const studentIds = enrollments.map(e => e.user.id);
-    const maxExamMark = enrollments[0].program.maxExamMark;
 
-    // 2. Aggregate sum of daily marks per student
+    // 2. Aggregate sum of daily marks per student ONLY
     const dailyMarksSum = await prisma.dailyMark.groupBy({
       by: ['studentId'],
       where: { programId, studentId: { in: studentIds } },
       _sum: { score: true }
     });
 
-    // 3. Get exam marks per student
-    const examMarks = await prisma.examMark.findMany({
-      where: { programId, studentId: { in: studentIds } }
-    });
-
-    // 4. Combine, Calculate, and Sort exactly like the old PHP script
+    // 3. Combine, Calculate, and Sort
     const finalResults = enrollments.map(enrollment => {
       const studentId = enrollment.user.id;
       
       const dailySumObj = dailyMarksSum.find(d => d.studentId === studentId);
       const programTotalScore = dailySumObj?._sum.score || 0;
-      
-      const examObj = examMarks.find(e => e.studentId === studentId);
-      const finalExamScore = examObj?.score || 0;
-      
-      const totalScore = programTotalScore + finalExamScore;
 
       return {
         fullName: enrollment.user.fullName,
-        programTotalScore,
-        finalExamScore,
-        totalScore,
-        maxExamMark
+        programTotalScore
       };
     });
 
-    // Sort: Highest Total Score First, then Alphabetical
+    // Sort: Highest Total Daily Score First, then Alphabetical
     finalResults.sort((a, b) => {
-      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+      if (b.programTotalScore !== a.programTotalScore) return b.programTotalScore - a.programTotalScore;
       return a.fullName.localeCompare(b.fullName);
     });
 
