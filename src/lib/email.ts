@@ -95,3 +95,68 @@ export const sendRegistrationEmail = async (
     console.error("Failed to send email via ZeptoMail REST API:", error);
   }
 };
+
+
+export const sendPasswordResetEmail = async (email: string, fullName: string, resetLink: string) => {
+  if (!process.env.ZEPTOMAIL_API_KEY || !process.env.ZEPTOMAIL_SENDER_EMAIL) {
+    console.warn(`⚠️ Email credentials missing. Cannot send password reset to ${email}.`);
+    return;
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-railway-domain.com";
+  const logoUrl = `${appUrl}/mutoon-logo.png`;
+
+  const htmlTemplate = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
+      <table width="100%" max-width="600px" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e4e4e7; border-spacing: 0;">
+        <tr>
+          <td style="background-color: #001232; padding: 30px; text-align: center;">
+            <img src="${logoUrl}" alt="Institute of Mutoon" style="width: 80px; height: auto; background-color: white; padding: 10px; border-radius: 12px; margin-bottom: 15px;" />
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Institute of Mutoon</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 40px 30px; color: #3f3f46; line-height: 1.6; text-align: center;">
+            <h2 style="color: #001232; margin-top: 0;">Password Reset Request</h2>
+            <p>As-salamu alaykum, <strong>${fullName}</strong>.</p>
+            <p>We received a request to reset your password. If you made this request, please click the button below to choose a new password. This link will expire in 15 minutes.</p>
+            
+            <a href="${resetLink}" style="display: inline-block; background-color: #FFB902; color: #001232; text-decoration: none; padding: 14px 30px; font-weight: bold; font-size: 16px; border-radius: 8px; margin: 25px 0;">Reset My Password</a>
+            
+            <p style="font-size: 12px; color: #71717a;">If you did not request this, you can safely ignore this email. Your password will remain unchanged.</p>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  try {
+    const token = process.env.ZEPTOMAIL_API_KEY;
+    const apiKey = token.startsWith("Zoho-enczapikey") ? token : `Zoho-enczapikey ${token}`;
+
+    const response = await fetch("https://api.zeptomail.com/v1.1/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({
+        from: { address: process.env.ZEPTOMAIL_SENDER_EMAIL, name: "Institute of Mutoon" },
+        to: [{ email_address: { address: email, name: fullName } }],
+        subject: "Password Reset - Institute of Mutoon",
+        htmlbody: htmlTemplate
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("ZeptoMail API Error:", await response.text());
+    }
+  } catch (error) {
+    console.error("Failed to send reset email:", error);
+  }
+};
