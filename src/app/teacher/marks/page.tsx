@@ -168,7 +168,7 @@ export default function TeacherDailyMarks() {
         const json = await res.json();
         setPrograms(json.data);
       } catch (err) {
-        router.push("/login");
+        router.push("/teacher/login");
       } finally {
         setIsLoading(false);
       }
