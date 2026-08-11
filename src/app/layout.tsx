@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Institute Of Mutoon",
-  description: Memorization Portal",
+  description: "Memorization Portal",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
