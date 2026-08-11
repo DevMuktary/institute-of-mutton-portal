@@ -56,7 +56,7 @@ export default function TeacherPortalHub() {
     const fetchUserData = async () => {
       try {
         const res = await fetch("/api/dashboard"); 
-        if (!res.ok) return router.push("/login");
+        if (!res.ok) return router.push("/teacher/login");
         const json = await res.json();
         
         if (json.data.role !== "TEACHER" && json.data.role !== "ADMIN") {
@@ -84,7 +84,7 @@ export default function TeacherPortalHub() {
 
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });
-    router.push("/login");
+    router.push("/teacher/login");
   };
 
   const showComingSoon = (feature: string) => {
