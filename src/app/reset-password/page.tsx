@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
 // Custom Toast Component
@@ -40,8 +40,11 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
   );
 };
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlToken = searchParams?.get("token");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   
@@ -75,7 +78,8 @@ export default function ResetPasswordPage() {
       const response = await fetch("/api/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password })
+        // Pass the token from the URL (if it exists) to the API route
+        body: JSON.stringify({ password, token: urlToken })
       });
 
       const data = await response.json();
@@ -105,7 +109,7 @@ export default function ResetPasswordPage() {
       
       {/* Header */}
       <div className="w-full bg-[#001232] px-4 pt-12 pb-24 flex flex-col items-center text-center shrink-0">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Institute of Mutton</h1>
+        <h1 className="text-3xl font-bold text-white tracking-tight">Institute of Mutoon</h1>
         <p className="text-[#FFB902] mt-2 text-sm font-semibold uppercase tracking-wider">Account Security</p>
       </div>
 
@@ -114,12 +118,12 @@ export default function ResetPasswordPage() {
         
         <div className="flex flex-col items-center -mt-10 mb-8">
           <div className="w-24 h-24 bg-white rounded-2xl shadow-lg p-2 flex items-center justify-center border border-gray-100 mb-6">
-            <Image src="/mutoon-logo.png" alt="Institute of Mutton Logo" width={80} height={80} className="object-contain" priority />
+            <Image src="/mutoon-logo.png" alt="Institute of Mutoon Logo" width={80} height={80} className="object-contain" priority />
           </div>
           <div className="w-full text-center px-4">
             <h2 className="text-2xl font-bold text-[#001232]">Set Your Password</h2>
             <p className="text-gray-500 mt-2 text-sm leading-relaxed">
-              For your security, you must choose a new, private password before accessing your memorization dashboard.
+              For your security, you must choose a new, private password before accessing your dashboard.
             </p>
           </div>
         </div>
@@ -213,5 +217,17 @@ export default function ResetPasswordPage() {
         }
       `}} />
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex justify-center items-center">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin"></div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
