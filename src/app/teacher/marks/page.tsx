@@ -278,7 +278,7 @@ export default function TeacherDailyMarks() {
   const handleDownloadPDF = async () => {
     if (!selectedProgram) return;
     setIsGeneratingPDF(true);
-    setToast({ msg: "Calculating final results & generating PDF...", type: "info" });
+    setToast({ msg: "Calculating scores & generating PDF...", type: "info" });
 
     try {
       // 1. Fetch live calculated data from API
@@ -313,32 +313,27 @@ export default function TeacherDailyMarks() {
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 18, 50);
-      doc.text("FINAL RESULTS & RANKINGS", pageWidth / 2, 52, { align: "center" });
+      doc.text("DAILY MARKS REPORT & RANKINGS", pageWidth / 2, 52, { align: "center" });
 
-      // Build Table Data
-      const maxExam = results[0]?.maxExamMark || 15;
+      // Build Table Data (EXAM SCORES REMOVED)
       const tableBody = results.map((row: any, index: number) => [
         (index + 1).toString(),
         row.fullName,
-        row.programTotalScore.toString(),
-        `${row.finalExamScore} / ${maxExam}`,
-        row.totalScore.toString()
+        row.programTotalScore.toString()
       ]);
 
       autoTable(doc, {
         startY: 60,
-        head: [['Rank', 'Full Name', 'Program Score', `Exam Score`, 'Total Score']],
+        head: [['Rank', 'Full Name', 'Total Daily Score']],
         body: tableBody,
         theme: 'grid',
         headStyles: { fillColor: [0, 18, 50], textColor: 255, fontStyle: 'bold', halign: 'center' },
         columnStyles: {
-          0: { halign: 'center', fontStyle: 'bold' },
+          0: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
           1: { halign: 'left' },
-          2: { halign: 'center' },
-          3: { halign: 'center' },
-          4: { halign: 'center', fontStyle: 'bold', fillColor: [255, 243, 205] } // Matches the yellow PHP row highlight
+          2: { halign: 'center', fontStyle: 'bold', fillColor: [255, 243, 205], cellWidth: 45 } // Highlights the final daily sum
         },
-        styles: { fontSize: 10, cellPadding: 4 },
+        styles: { fontSize: 10, cellPadding: 6 },
         alternateRowStyles: { fillColor: [248, 249, 250] }
       });
 
@@ -351,7 +346,7 @@ export default function TeacherDailyMarks() {
 
       // Trigger automatic download
       const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
-      doc.save(`Final_Results_${cleanTitle}.pdf`);
+      doc.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
       
       setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
     } catch (err) {
@@ -425,7 +420,7 @@ export default function TeacherDailyMarks() {
                 className="inline-flex items-center bg-white border border-[#e2e8f0] text-[#001232] px-4 py-2.5 rounded-lg font-bold hover:bg-[#f8fafc] transition-colors shadow-sm w-full sm:w-auto justify-center disabled:opacity-50"
               >
                 {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 text-[#FFB902] animate-spin" /> : <FileText className="w-4 h-4 mr-2 text-[#FFB902]" />}
-                {isGeneratingPDF ? "Generating..." : "Final PDF Results"}
+                {isGeneratingPDF ? "Generating PDF..." : "Daily Marks Report"}
               </button>
             </div>
 
