@@ -30,7 +30,7 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
 export default function TeacherLoginPage() {
   const router = useRouter();
   
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   
@@ -43,11 +43,19 @@ export default function TeacherLoginPage() {
     setIsLoading(true);
     setToastMessage("");
 
+    if (!identifier || !password) {
+      setToastType("error");
+      setToastMessage("Please provide both email/phone and password");
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      // Sending 'email' key as it aligns with standard generic identifier routing
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: identifier, password }),
       });
 
       const data = await res.json();
@@ -62,13 +70,10 @@ export default function TeacherLoginPage() {
       setToastType("success");
       setToastMessage("Authentication successful. Initializing secure session...");
 
-      // Wait a moment for the cookie to set and the toast to show
       setTimeout(() => {
-        // If the API flags that they need to reset their password, send them there
         if (data.mustResetPass) {
           router.push("/reset-password");
         } else {
-          // Send them straight to the Teacher Control Panel!
           router.push("/teacher");
         }
       }, 1000);
@@ -103,13 +108,6 @@ export default function TeacherLoginPage() {
             Secure authentication portal for Institute of Mutoon administrators and teaching staff.
           </p>
         </div>
-
-        <div className="relative z-10">
-          <div className="flex items-center space-x-3 text-[#FFB902]">
-            <ShieldCheck className="w-6 h-6" />
-            <span className="font-bold tracking-widest uppercase text-sm">Restricted Area</span>
-          </div>
-        </div>
       </div>
 
       {/* Right Side - Login Form */}
@@ -121,10 +119,6 @@ export default function TeacherLoginPage() {
             <Image src="/mutoon-logo.png" alt="Logo" width={48} height={48} className="object-contain" priority />
           </div>
           <h2 className="text-2xl font-extrabold text-[#001232]">Staff Access</h2>
-          <div className="flex items-center justify-center space-x-2 text-[#FFB902] mt-2">
-            <ShieldCheck className="w-4 h-4" />
-            <span className="font-bold tracking-widest uppercase text-[10px]">Restricted Area</span>
-          </div>
         </div>
 
         <div className="max-w-md w-full mx-auto">
@@ -133,17 +127,16 @@ export default function TeacherLoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Email Field */}
+            {/* Identifier Field (Email or Phone) */}
             <div>
-              <label className="block text-sm font-bold text-[#001232] mb-2">Staff Email</label>
+              <label className="block text-sm font-bold text-[#001232] mb-2">Email or Phone Number</label>
               <div className="relative">
                 <input 
-                  type="email" 
-                  required 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text" 
+                  value={identifier} 
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#001232] focus:border-[#001232] outline-none transition-all text-[#001232] font-medium"
-                  placeholder="admin@mutoon.edu" 
+                  placeholder="admin@mutoon.edu or 080..." 
                 />
               </div>
             </div>
@@ -152,9 +145,6 @@ export default function TeacherLoginPage() {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-bold text-[#001232]">Password</label>
-                <Link href="/forgot-password" className="text-sm font-bold text-gray-400 hover:text-[#001232] transition-colors">
-                  Forgot?
-                </Link>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -162,7 +152,6 @@ export default function TeacherLoginPage() {
                 </div>
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  required 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-11 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#001232] focus:border-[#001232] outline-none transition-all text-[#001232] font-medium"
@@ -180,7 +169,7 @@ export default function TeacherLoginPage() {
 
             <button 
               type="submit" 
-              disabled={isLoading || !email || !password}
+              disabled={isLoading}
               className="w-full bg-[#001232] text-white font-bold py-4 rounded-xl hover:bg-[#001232]/90 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isLoading ? (
