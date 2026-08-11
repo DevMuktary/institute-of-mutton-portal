@@ -47,10 +47,12 @@ model Program {
   titleEn          String
   titleAr          String?
   maxDailyMark     Int           @default(100)
+  maxExamMark      Int           @default(15)   // Fully dynamic exam ceiling
   isRegOpen        Boolean       @default(true)
   isPaid           Boolean       @default(false)
   enrollments      Enrollment[]
   dailyMarks       DailyMark[]
+  examMarks        ExamMark[]                   // New relation back to exams
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 }
@@ -82,8 +84,7 @@ model DailyMark {
   
   dayNumber   Int      @default(1)
   score       Float
-  notes       String?  
-  
+  notes       String?
   date        DateTime @default(now())
 
   @@unique([studentId, programId, dayNumber]) 
@@ -91,8 +92,15 @@ model DailyMark {
 
 model ExamMark {
   id        String   @id @default(uuid())
+  
   studentId String
   student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  programId String
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
   score     Float?
   date      DateTime @default(now())
+
+  @@unique([studentId, programId]) // Ensures one exam score per student per program
 }
