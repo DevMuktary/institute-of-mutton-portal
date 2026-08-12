@@ -133,11 +133,8 @@ export default function TeacherDailyMarks() {
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
-  // State to hold the data specifically for the hidden PDF layout
   const [pdfResults, setPdfResults] = useState<any[] | null>(null);
-
   const [toast, setToast] = useState<{msg: string, type: "error"|"success"|"info"} | null>(null);
-
   const [showNav, setShowNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
@@ -152,7 +149,6 @@ export default function TeacherDailyMarks() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  // Load Programs
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
@@ -169,7 +165,6 @@ export default function TeacherDailyMarks() {
     fetchPrograms();
   }, [router]);
 
-  // Init Program Details
   useEffect(() => {
     if (!selectedProgram) return;
     const initProgram = async () => {
@@ -194,7 +189,6 @@ export default function TeacherDailyMarks() {
     initProgram();
   }, [selectedProgram]);
 
-  // Load Specific Day Marks
   useEffect(() => {
     if (!selectedProgram) return;
     const fetchMarks = async () => {
@@ -267,14 +261,12 @@ export default function TeacherDailyMarks() {
     }
   };
 
-  // --- NEW CANVAS-BASED PDF GENERATION ENGINE ---
   const handleDownloadPDF = async () => {
     if (!selectedProgram) return;
     setIsGeneratingPDF(true);
     setToast({ msg: "Calculating scores & preparing document...", type: "info" });
 
     try {
-      // 1. Fetch live calculated data from API
       const res = await fetch(`/api/teacher/results?programId=${selectedProgram.id}`);
       if (!res.ok) throw new Error();
       const { data: results } = await res.json();
@@ -284,42 +276,40 @@ export default function TeacherDailyMarks() {
         return setToast({ msg: "No approved students found for this program.", type: "error" });
       }
 
-      // 2. Pass data to the hidden HTML component so it renders in the DOM
       setPdfResults(results);
 
-      // 3. Give the browser a second to fully render the Arabic fonts and load the Logo image
+      // Increased timeout slightly to ensure fonts and layout flush completely
       setTimeout(async () => {
         try {
           const element = document.getElementById("hidden-pdf-report");
-          if (element) {
-            // Take a high-resolution snapshot of the HTML element
-            const canvas = await html2canvas(element, { 
-              scale: 2, 
-              useCORS: true, 
-              logging: false 
-            });
-            const imgData = canvas.toDataURL("image/png");
-            
-            // Draw the snapshot onto the PDF Document
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-            
-            // Trigger automatic download
-            const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
-            pdf.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
-            
-            setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
-          }
+          if (!element) throw new Error("Template not mounted");
+
+          // allowTaint fixes issues with local images not loading in the canvas
+          const canvas = await html2canvas(element, { 
+            scale: 2, 
+            useCORS: true,
+            allowTaint: true,
+            logging: false
+          });
+          const imgData = canvas.toDataURL("image/png");
+          
+          const pdf = new jsPDF("p", "mm", "a4");
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          
+          pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+          
+          const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
+          pdf.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
+          
+          setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
         } catch (err) {
           setToast({ msg: "Failed to render PDF canvas.", type: "error" });
         } finally {
           setIsGeneratingPDF(false);
-          setPdfResults(null); // Clean up the hidden component
+          setPdfResults(null);
         }
-      }, 1000);
+      }, 1500);
 
     } catch (err) {
       setToast({ msg: "Failed to fetch PDF data.", type: "error" });
@@ -346,11 +336,15 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* --- HIDDEN PDF HTML TEMPLATE (Handles Arabic & Logo perfectly!) --- */}
+      {/* --- HIDDEN PDF TEMPLATE (Absolute positioned, opacity 0, pointer events disabled) --- */}
       {pdfResults && selectedProgram && (
-        <div className="fixed top-0 left-[-9999px] w-[210mm] bg-white text-black p-12 z-[-1]" id="hidden-pdf-report">
+        <div 
+          id="hidden-pdf-report"
+          className="absolute top-0 left-0 w-[210mm] bg-white text-black p-12 -z-50 opacity-0 pointer-events-none"
+        >
           <div className="text-center border-b-2 border-[#001232] pb-6 mb-8">
-            <img src="/mutoon-logo.png" alt="Institute Logo" crossOrigin="anonymous" className="w-24 h-24 mx-auto mb-4 object-contain" />
+            {/* Removed crossOrigin attribute as allowTaint now handles local assets */}
+            <img src="/mutoon-logo.png" alt="Institute Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
             <h1 className="text-4xl font-extrabold text-[#001232]">Institute of Mutoon</h1>
             <h2 className="text-2xl text-[#FFB902] mt-3 font-semibold" dir="auto">{selectedProgram.titleEn}</h2>
             <h3 className="text-xl font-bold text-gray-700 mt-2 tracking-widest uppercase">Daily Marks Report & Rankings</h3>
@@ -368,7 +362,6 @@ export default function TeacherDailyMarks() {
               {pdfResults.map((row, index) => (
                 <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                   <td className="border border-gray-300 p-4 text-center font-bold text-lg">{index + 1}</td>
-                  {/* dir="auto" ensures perfectly shaped native Arabic text routing! */}
                   <td className="border border-gray-300 p-4 text-left font-bold text-lg" dir="auto">{row.fullName}</td>
                   <td className="border border-gray-300 p-4 text-center font-extrabold text-xl bg-[#fff3cd] text-[#001232]">
                     {row.programTotalScore}
@@ -382,7 +375,6 @@ export default function TeacherDailyMarks() {
           </div>
         </div>
       )}
-      {/* --- END HIDDEN PDF TEMPLATE --- */}
 
       <nav className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${showNav ? "translate-y-0" : "-translate-y-full"}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
