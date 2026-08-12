@@ -129,7 +129,7 @@ export default function TeacherDailyMarks() {
   const [statusFilter, setStatusFilter] = useState<"all" | "marked" | "unmarked">("all");
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitializing, setIsInitializing] = useState(false); // Prevents the UI flash!
+  const [isInitializing, setIsInitializing] = useState(false);
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -150,7 +150,6 @@ export default function TeacherDailyMarks() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  // Load Programs
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
@@ -167,7 +166,6 @@ export default function TeacherDailyMarks() {
     fetchPrograms();
   }, [router]);
 
-  // Init Program Details & Days (Handles UX flashing)
   useEffect(() => {
     if (!selectedProgram) return;
     let isMounted = true;
@@ -200,9 +198,8 @@ export default function TeacherDailyMarks() {
     return () => { isMounted = false; };
   }, [selectedProgram]);
 
-  // Load Specific Day Marks
   useEffect(() => {
-    if (!selectedProgram || isInitializing) return; // Don't load until initializing is complete
+    if (!selectedProgram || isInitializing) return;
     
     const fetchMarks = async () => {
       setIsStudentsLoading(true);
@@ -291,13 +288,15 @@ export default function TeacherDailyMarks() {
 
       setPdfResults(results);
 
+      // Reduced timeout drastically to speed up generation
       setTimeout(async () => {
         try {
           const element = document.getElementById("hidden-pdf-report");
           if (!element) throw new Error("Template not mounted");
 
+          // Optimized canvas generation (scale 1.5 is faster but still sharp)
           const canvas = await html2canvas(element, { 
-            scale: 2, 
+            scale: 1.5, 
             useCORS: true,
             allowTaint: true,
             backgroundColor: "#ffffff",
@@ -309,9 +308,23 @@ export default function TeacherDailyMarks() {
           
           const pdf = new jsPDF("p", "mm", "a4");
           const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const imgHeight = (canvas.height * pdfWidth) / canvas.width;
           
-          pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+          let heightLeft = imgHeight;
+          let position = 0;
+
+          // Add the first page
+          pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
+          heightLeft -= pageHeight;
+
+          // Slicing Engine: Add new pages seamlessly if the image is taller than an A4 page
+          while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
+            heightLeft -= pageHeight;
+          }
           
           const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
           pdf.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
@@ -319,12 +332,12 @@ export default function TeacherDailyMarks() {
           setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
         } catch (err) {
           console.error("PDF Render Error:", err);
-          setToast({ msg: "Failed to render PDF canvas. Check console for details.", type: "error" });
+          setToast({ msg: "Failed to render PDF. Check console for details.", type: "error" });
         } finally {
           setIsGeneratingPDF(false);
           setPdfResults(null);
         }
-      }, 1500);
+      }, 300); // Wait just 300ms instead of 1500ms
 
     } catch (err) {
       setToast({ msg: "Failed to fetch PDF data.", type: "error" });
@@ -351,7 +364,7 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative overflow-x-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* --- STRICT PDF TEMPLATE: Zero Tailwind color classes to prevent html2canvas lab() crash --- */}
+      {/* --- HIDDEN PDF TEMPLATE --- */}
       {pdfResults && selectedProgram && (
         <div 
           id="hidden-pdf-report"
@@ -440,7 +453,6 @@ export default function TeacherDailyMarks() {
               </button>
             </div>
 
-            {/* Replaced initial flash with a smooth loading state */}
             {isInitializing ? (
               <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#e2e8f0] rounded-xl shadow-sm">
                 <Loader2 className="w-12 h-12 text-[#FFB902] animate-spin mb-4" />
