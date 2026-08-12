@@ -4,7 +4,7 @@ import { useState, useEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 import { 
   BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText, Loader2, Save
 } from "lucide-react";
@@ -51,12 +51,7 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
 
 // --- 2. Isolated Row Component for Auto-Save ---
 const StudentMarkRow = memo(({ 
-  student, 
-  programId,
-  dayNumber,
-  maxMark, 
-  initialScore,
-  onSaveSingle
+  student, programId, dayNumber, maxMark, initialScore, onSaveSingle
 }: { 
   student: Student, programId: string, dayNumber: number, maxMark: number, 
   initialScore: string, onSaveSingle: (studentId: string, score: string) => Promise<boolean> 
@@ -106,13 +101,8 @@ const StudentMarkRow = memo(({
         </div>
         
         <input 
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={value}
-          onChange={handleInputChange}
-          onBlur={handleBlurOrEnter}
-          onKeyDown={handleKeyDown}
+          type="text" inputMode="numeric" pattern="[0-9]*" value={value}
+          onChange={handleInputChange} onBlur={handleBlurOrEnter} onKeyDown={handleKeyDown}
           placeholder="--"
           className={`w-24 text-center p-2.5 border-2 rounded-lg outline-none transition-colors text-[16px] font-bold
             ${status === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-[#e2e8f0] focus:border-[#001232]'}`}
@@ -142,6 +132,9 @@ export default function TeacherDailyMarks() {
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  
+  // State to hold the data specifically for the hidden PDF layout
+  const [pdfResults, setPdfResults] = useState<any[] | null>(null);
 
   const [toast, setToast] = useState<{msg: string, type: "error"|"success"|"info"} | null>(null);
 
@@ -274,11 +267,11 @@ export default function TeacherDailyMarks() {
     }
   };
 
-  // --- PDF GENERATION ENGINE ---
+  // --- NEW CANVAS-BASED PDF GENERATION ENGINE ---
   const handleDownloadPDF = async () => {
     if (!selectedProgram) return;
     setIsGeneratingPDF(true);
-    setToast({ msg: "Calculating scores & generating PDF...", type: "info" });
+    setToast({ msg: "Calculating scores & preparing document...", type: "info" });
 
     try {
       // 1. Fetch live calculated data from API
@@ -291,67 +284,45 @@ export default function TeacherDailyMarks() {
         return setToast({ msg: "No approved students found for this program.", type: "error" });
       }
 
-      // 2. Initialize PDF
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      
-      // Header Section
-      doc.setFontSize(22);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 18, 50); // #001232
-      doc.text("Institute of Mutoon", pageWidth / 2, 25, { align: "center" });
-      
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(255, 185, 2); // #FFB902
-      doc.text(selectedProgram.titleEn, pageWidth / 2, 35, { align: "center" });
+      // 2. Pass data to the hidden HTML component so it renders in the DOM
+      setPdfResults(results);
 
-      doc.setDrawColor(0, 18, 50);
-      doc.setLineWidth(0.5);
-      doc.line(14, 42, pageWidth - 14, 42);
+      // 3. Give the browser a second to fully render the Arabic fonts and load the Logo image
+      setTimeout(async () => {
+        try {
+          const element = document.getElementById("hidden-pdf-report");
+          if (element) {
+            // Take a high-resolution snapshot of the HTML element
+            const canvas = await html2canvas(element, { 
+              scale: 2, 
+              useCORS: true, 
+              logging: false 
+            });
+            const imgData = canvas.toDataURL("image/png");
+            
+            // Draw the snapshot onto the PDF Document
+            const pdf = new jsPDF("p", "mm", "a4");
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+            
+            // Trigger automatic download
+            const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
+            pdf.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
+            
+            setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
+          }
+        } catch (err) {
+          setToast({ msg: "Failed to render PDF canvas.", type: "error" });
+        } finally {
+          setIsGeneratingPDF(false);
+          setPdfResults(null); // Clean up the hidden component
+        }
+      }, 1000);
 
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 18, 50);
-      doc.text("DAILY MARKS REPORT & RANKINGS", pageWidth / 2, 52, { align: "center" });
-
-      // Build Table Data (EXAM SCORES REMOVED)
-      const tableBody = results.map((row: any, index: number) => [
-        (index + 1).toString(),
-        row.fullName,
-        row.programTotalScore.toString()
-      ]);
-
-      autoTable(doc, {
-        startY: 60,
-        head: [['Rank', 'Full Name', 'Total Daily Score']],
-        body: tableBody,
-        theme: 'grid',
-        headStyles: { fillColor: [0, 18, 50], textColor: 255, fontStyle: 'bold', halign: 'center' },
-        columnStyles: {
-          0: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
-          1: { halign: 'left' },
-          2: { halign: 'center', fontStyle: 'bold', fillColor: [255, 243, 205], cellWidth: 45 } // Highlights the final daily sum
-        },
-        styles: { fontSize: 10, cellPadding: 6 },
-        alternateRowStyles: { fillColor: [248, 249, 250] }
-      });
-
-      // Footer
-      const finalY = (doc as any).lastAutoTable.finalY || 60;
-      doc.setFontSize(8);
-      doc.setTextColor(136, 136, 136);
-      const dateStr = new Date().toLocaleString();
-      doc.text(`Generated on: ${dateStr}`, pageWidth / 2, finalY + 15, { align: "center" });
-
-      // Trigger automatic download
-      const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
-      doc.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
-      
-      setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
     } catch (err) {
-      setToast({ msg: "Failed to generate PDF. Check server logs.", type: "error" });
-    } finally {
+      setToast({ msg: "Failed to fetch PDF data.", type: "error" });
       setIsGeneratingPDF(false);
     }
   };
@@ -372,8 +343,46 @@ export default function TeacherDailyMarks() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b]">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* --- HIDDEN PDF HTML TEMPLATE (Handles Arabic & Logo perfectly!) --- */}
+      {pdfResults && selectedProgram && (
+        <div className="fixed top-0 left-[-9999px] w-[210mm] bg-white text-black p-12 z-[-1]" id="hidden-pdf-report">
+          <div className="text-center border-b-2 border-[#001232] pb-6 mb-8">
+            <img src="/mutoon-logo.png" alt="Institute Logo" crossOrigin="anonymous" className="w-24 h-24 mx-auto mb-4 object-contain" />
+            <h1 className="text-4xl font-extrabold text-[#001232]">Institute of Mutoon</h1>
+            <h2 className="text-2xl text-[#FFB902] mt-3 font-semibold" dir="auto">{selectedProgram.titleEn}</h2>
+            <h3 className="text-xl font-bold text-gray-700 mt-2 tracking-widest uppercase">Daily Marks Report & Rankings</h3>
+          </div>
+          
+          <table className="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr className="bg-[#001232] text-white text-lg">
+                <th className="border border-gray-300 p-4 text-center w-24">Rank</th>
+                <th className="border border-gray-300 p-4 text-left">Full Name</th>
+                <th className="border border-gray-300 p-4 text-center w-48">Total Daily Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pdfResults.map((row, index) => (
+                <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                  <td className="border border-gray-300 p-4 text-center font-bold text-lg">{index + 1}</td>
+                  {/* dir="auto" ensures perfectly shaped native Arabic text routing! */}
+                  <td className="border border-gray-300 p-4 text-left font-bold text-lg" dir="auto">{row.fullName}</td>
+                  <td className="border border-gray-300 p-4 text-center font-extrabold text-xl bg-[#fff3cd] text-[#001232]">
+                    {row.programTotalScore}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-8 text-center text-sm font-semibold text-gray-500">
+            Generated by Institute of Mutoon Portal • {new Date().toLocaleString()}
+          </div>
+        </div>
+      )}
+      {/* --- END HIDDEN PDF TEMPLATE --- */}
 
       <nav className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${showNav ? "translate-y-0" : "-translate-y-full"}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
