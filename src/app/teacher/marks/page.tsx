@@ -21,7 +21,7 @@ interface Student {
   email: string;
 }
 
-// --- 1. Custom Toast Component ---
+// --- Custom Toast Component ---
 const Toast = ({ message, onClose, type = "error" }: { message: string, onClose: () => void, type?: "error" | "success" | "info" }) => {
   useEffect(() => {
     const timer = setTimeout(() => onClose(), 4000);
@@ -49,7 +49,7 @@ const Toast = ({ message, onClose, type = "error" }: { message: string, onClose:
   );
 };
 
-// --- 2. Isolated Row Component for Auto-Save ---
+// --- Isolated Row Component for Auto-Save ---
 const StudentMarkRow = memo(({ 
   student, programId, dayNumber, maxMark, initialScore, onSaveSingle
 }: { 
@@ -113,7 +113,7 @@ const StudentMarkRow = memo(({
 });
 StudentMarkRow.displayName = "StudentMarkRow";
 
-// --- 3. Main Dashboard Component ---
+// --- Main Dashboard Component ---
 export default function TeacherDailyMarks() {
   const router = useRouter();
   
@@ -129,6 +129,7 @@ export default function TeacherDailyMarks() {
   const [statusFilter, setStatusFilter] = useState<"all" | "marked" | "unmarked">("all");
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false); // Prevents the UI flash!
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -149,6 +150,7 @@ export default function TeacherDailyMarks() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
+  // Load Programs
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
@@ -165,32 +167,43 @@ export default function TeacherDailyMarks() {
     fetchPrograms();
   }, [router]);
 
+  // Init Program Details & Days (Handles UX flashing)
   useEffect(() => {
     if (!selectedProgram) return;
+    let isMounted = true;
+
     const initProgram = async () => {
-      setIsStudentsLoading(true);
+      setIsInitializing(true);
       try {
         const resStudents = await fetch(`/api/teacher/dashboard?programId=${selectedProgram.id}`);
         if (resStudents.ok) {
           const jsonStudents = await resStudents.json();
-          setStudents(jsonStudents.data);
+          if (isMounted) setStudents(jsonStudents.data);
         }
 
         const resDays = await fetch(`/api/teacher/marks/days?programId=${selectedProgram.id}`);
         if (resDays.ok) {
           const jsonDays = await resDays.json();
-          setTotalDays(jsonDays.maxDay); 
-          setSelectedDay(jsonDays.maxDay); 
+          if (isMounted) {
+            setTotalDays(jsonDays.maxDay); 
+            setSelectedDay(jsonDays.maxDay); 
+          }
         }
       } catch (err) {
         setToast({ msg: "Failed to load program data.", type: "error" });
+      } finally {
+        if (isMounted) setIsInitializing(false);
       }
     };
     initProgram();
+
+    return () => { isMounted = false; };
   }, [selectedProgram]);
 
+  // Load Specific Day Marks
   useEffect(() => {
-    if (!selectedProgram) return;
+    if (!selectedProgram || isInitializing) return; // Don't load until initializing is complete
+    
     const fetchMarks = async () => {
       setIsStudentsLoading(true);
       try {
@@ -210,7 +223,7 @@ export default function TeacherDailyMarks() {
       }
     };
     fetchMarks();
-  }, [selectedProgram, selectedDay]);
+  }, [selectedProgram, selectedDay, isInitializing]);
 
   const handleSaveSingleScore = async (studentId: string, score: string) => {
     if (!selectedProgram) return false;
@@ -278,13 +291,11 @@ export default function TeacherDailyMarks() {
 
       setPdfResults(results);
 
-      // Give React time to flush the DOM and the browser time to load the image/fonts
       setTimeout(async () => {
         try {
           const element = document.getElementById("hidden-pdf-report");
           if (!element) throw new Error("Template not mounted");
 
-          // CRITICAL FIX: Force background color and use strict dimensions to ensure html2canvas doesn't crash on hidden elements
           const canvas = await html2canvas(element, { 
             scale: 2, 
             useCORS: true,
@@ -340,41 +351,41 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative overflow-x-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* --- CRITICAL FIX: Push far off screen instead of opacity-0 to guarantee rendering --- */}
+      {/* --- STRICT PDF TEMPLATE: Zero Tailwind color classes to prevent html2canvas lab() crash --- */}
       {pdfResults && selectedProgram && (
         <div 
           id="hidden-pdf-report"
-          className="absolute bg-white text-black p-12 -z-50 pointer-events-none"
-          style={{ width: "210mm", top: "0", left: "-9999px" }}
+          className="absolute -z-50 pointer-events-none"
+          style={{ width: "210mm", top: "0", left: "-9999px", padding: "3rem", backgroundColor: "#ffffff", color: "#000000" }}
         >
-          <div className="text-center border-b-2 border-[#001232] pb-6 mb-8">
-            <img src="/mutoon-logo.png" alt="Institute Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
-            <h1 className="text-4xl font-extrabold text-[#001232]">Institute of Mutoon</h1>
-            <h2 className="text-2xl text-[#FFB902] mt-3 font-semibold" dir="auto">{selectedProgram.titleEn}</h2>
-            <h3 className="text-xl font-bold text-gray-700 mt-2 tracking-widest uppercase">Daily Marks Report & Rankings</h3>
+          <div style={{ textAlign: "center", borderBottom: "2px solid #001232", paddingBottom: "1.5rem", marginBottom: "2rem" }}>
+            <img src="/mutoon-logo.png" alt="Institute Logo" style={{ width: "6rem", height: "6rem", margin: "0 auto 1rem auto", objectFit: "contain" }} />
+            <h1 style={{ fontSize: "2.25rem", fontWeight: "800", color: "#001232", margin: 0 }}>Institute of Mutoon</h1>
+            <h2 style={{ fontSize: "1.5rem", color: "#FFB902", marginTop: "0.75rem", fontWeight: "600", margin: 0 }} dir="auto">{selectedProgram.titleEn}</h2>
+            <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "#374151", marginTop: "0.5rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Daily Marks Report & Rankings</h3>
           </div>
           
-          <table className="w-full border-collapse border border-gray-300">
+          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #d1d5db" }}>
             <thead>
-              <tr className="bg-[#001232] text-white text-lg">
-                <th className="border border-gray-300 p-4 text-center w-24">Rank</th>
-                <th className="border border-gray-300 p-4 text-left">Full Name</th>
-                <th className="border border-gray-300 p-4 text-center w-48">Total Daily Score</th>
+              <tr style={{ backgroundColor: "#001232", color: "#ffffff", fontSize: "1.125rem" }}>
+                <th style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", width: "6rem" }}>Rank</th>
+                <th style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "left" }}>Full Name</th>
+                <th style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", width: "12rem" }}>Total Daily Score</th>
               </tr>
             </thead>
             <tbody>
               {pdfResults.map((row, index) => (
-                <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                  <td className="border border-gray-300 p-4 text-center font-bold text-lg">{index + 1}</td>
-                  <td className="border border-gray-300 p-4 text-left font-bold text-lg" dir="auto">{row.fullName}</td>
-                  <td className="border border-gray-300 p-4 text-center font-extrabold text-xl bg-[#fff3cd] text-[#001232]">
+                <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#f9fafb" : "#ffffff" }}>
+                  <td style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", fontWeight: "bold", fontSize: "1.125rem" }}>{index + 1}</td>
+                  <td style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "left", fontWeight: "bold", fontSize: "1.125rem" }} dir="auto">{row.fullName}</td>
+                  <td style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", fontWeight: "800", fontSize: "1.25rem", backgroundColor: "#fff3cd", color: "#001232" }}>
                     {row.programTotalScore}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="mt-8 text-center text-sm font-semibold text-gray-500">
+          <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "0.875rem", fontWeight: "600", color: "#6b7280" }}>
             Generated by Institute of Mutoon Portal • {new Date().toLocaleString()}
           </div>
         </div>
@@ -429,86 +440,95 @@ export default function TeacherDailyMarks() {
               </button>
             </div>
 
-            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-2 flex overflow-x-auto gap-2 items-center no-scrollbar">
-              {[...Array(totalDays)].map((_, i) => {
-                const day = i + 1;
-                return (
+            {/* Replaced initial flash with a smooth loading state */}
+            {isInitializing ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#e2e8f0] rounded-xl shadow-sm">
+                <Loader2 className="w-12 h-12 text-[#FFB902] animate-spin mb-4" />
+                <p className="text-[#001232] font-bold text-lg">Loading Roster & Progress Data...</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-2 flex overflow-x-auto gap-2 items-center no-scrollbar">
+                  {[...Array(totalDays)].map((_, i) => {
+                    const day = i + 1;
+                    return (
+                      <button
+                        key={day} onClick={() => setSelectedDay(day)}
+                        className={`flex-shrink-0 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors ${selectedDay === day ? 'bg-[#001232] text-white' : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'}`}
+                      >
+                        Day {day}
+                      </button>
+                    )
+                  })}
                   <button
-                    key={day} onClick={() => setSelectedDay(day)}
-                    className={`flex-shrink-0 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors ${selectedDay === day ? 'bg-[#001232] text-white' : 'bg-[#f1f5f9] text-[#475569] hover:bg-[#e2e8f0]'}`}
+                    onClick={() => {
+                      const nextDay = totalDays + 1;
+                      setTotalDays(nextDay);
+                      setSelectedDay(nextDay);
+                    }}
+                    className="flex-shrink-0 flex items-center px-4 py-2.5 rounded-lg font-bold text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200 ml-2"
                   >
-                    Day {day}
+                    <span className="text-lg mr-1 leading-none">+</span> Add Day
                   </button>
-                )
-              })}
-              <button
-                onClick={() => {
-                  const nextDay = totalDays + 1;
-                  setTotalDays(nextDay);
-                  setSelectedDay(nextDay);
-                }}
-                className="flex-shrink-0 flex items-center px-4 py-2.5 rounded-lg font-bold text-sm bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200 ml-2"
-              >
-                <span className="text-lg mr-1 leading-none">+</span> Add Day
-              </button>
-            </div>
-
-            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-4 sm:p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto flex-grow">
-                <input 
-                  type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search name or email..."
-                  className="px-4 py-2.5 border border-[#e2e8f0] rounded-lg outline-none focus:border-[#001232] focus:ring-1 focus:ring-[#001232] w-full sm:w-64"
-                />
-                <select 
-                  value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="px-4 py-2.5 border border-[#e2e8f0] rounded-lg outline-none focus:border-[#001232] bg-white w-full sm:w-40"
-                >
-                  <option value="all">All Students</option>
-                  <option value="marked">Marked ✓</option>
-                  <option value="unmarked">Unmarked ✕</option>
-                </select>
-              </div>
-              <button 
-                onClick={handleMarkAllZero} disabled={isBulkSaving}
-                className="w-full md:w-auto bg-[#f1f5f9] border border-[#e2e8f0] text-[#475569] px-5 py-2.5 rounded-lg font-bold hover:bg-[#e2e8f0] transition-colors flex items-center justify-center disabled:opacity-50"
-              >
-                {isBulkSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                Mark Rest as 0
-              </button>
-            </div>
-
-            <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm overflow-hidden flex flex-col">
-              <div className="hidden sm:flex bg-[#f8fafc] border-b border-[#e2e8f0] p-4 text-sm font-bold text-[#64748b] uppercase tracking-wider">
-                <div className="flex-grow">Student Details</div>
-                <div className="w-32 text-center mr-[4.5rem]">Mark (/{selectedProgram.maxDailyMark})</div>
-              </div>
-
-              {isStudentsLoading ? (
-                <div className="p-16 flex justify-center">
-                  <Loader2 className="w-8 h-8 text-[#001232] animate-spin" />
                 </div>
-              ) : filteredStudents.length === 0 ? (
-                <div className="p-12 text-center text-[#64748b] font-medium text-lg">
-                  No students match your criteria.
-                </div>
-              ) : (
-                <div className="flex flex-col min-h-0">
-                  {filteredStudents.map((student) => (
-                    <StudentMarkRow 
-                      key={`${student.id}-${selectedDay}`} 
-                      student={student}
-                      programId={selectedProgram.id}
-                      dayNumber={selectedDay}
-                      maxMark={selectedProgram.maxDailyMark}
-                      initialScore={marksData[student.id] ?? ""}
-                      onSaveSingle={handleSaveSingleScore}
+
+                <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm p-4 sm:p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
+                  <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto flex-grow">
+                    <input 
+                      type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search name or email..."
+                      className="px-4 py-2.5 border border-[#e2e8f0] rounded-lg outline-none focus:border-[#001232] focus:ring-1 focus:ring-[#001232] w-full sm:w-64"
                     />
-                  ))}
+                    <select 
+                      value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}
+                      className="px-4 py-2.5 border border-[#e2e8f0] rounded-lg outline-none focus:border-[#001232] bg-white w-full sm:w-40"
+                    >
+                      <option value="all">All Students</option>
+                      <option value="marked">Marked ✓</option>
+                      <option value="unmarked">Unmarked ✕</option>
+                    </select>
+                  </div>
+                  <button 
+                    onClick={handleMarkAllZero} disabled={isBulkSaving}
+                    className="w-full md:w-auto bg-[#f1f5f9] border border-[#e2e8f0] text-[#475569] px-5 py-2.5 rounded-lg font-bold hover:bg-[#e2e8f0] transition-colors flex items-center justify-center disabled:opacity-50"
+                  >
+                    {isBulkSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Mark Rest as 0
+                  </button>
                 </div>
-              )}
-            </div>
 
+                <div className="bg-white border border-[#e2e8f0] rounded-xl shadow-sm overflow-hidden flex flex-col">
+                  <div className="hidden sm:flex bg-[#f8fafc] border-b border-[#e2e8f0] p-4 text-sm font-bold text-[#64748b] uppercase tracking-wider">
+                    <div className="flex-grow">Student Details</div>
+                    <div className="w-32 text-center mr-[4.5rem]">Mark (/{selectedProgram.maxDailyMark})</div>
+                  </div>
+
+                  {isStudentsLoading ? (
+                    <div className="p-16 flex justify-center">
+                      <Loader2 className="w-8 h-8 text-[#001232] animate-spin" />
+                    </div>
+                  ) : filteredStudents.length === 0 ? (
+                    <div className="p-12 text-center text-[#64748b] font-medium text-lg">
+                      No students match your criteria.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col min-h-0">
+                      {filteredStudents.map((student) => (
+                        <StudentMarkRow 
+                          key={`${student.id}-${selectedDay}`} 
+                          student={student}
+                          programId={selectedProgram.id}
+                          dayNumber={selectedDay}
+                          maxMark={selectedProgram.maxDailyMark}
+                          initialScore={marksData[student.id] ?? ""}
+                          onSaveSingle={handleSaveSingleScore}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>
