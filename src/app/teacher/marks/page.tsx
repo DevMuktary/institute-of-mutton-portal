@@ -278,19 +278,22 @@ export default function TeacherDailyMarks() {
 
       setPdfResults(results);
 
-      // Increased timeout slightly to ensure fonts and layout flush completely
+      // Give React time to flush the DOM and the browser time to load the image/fonts
       setTimeout(async () => {
         try {
           const element = document.getElementById("hidden-pdf-report");
           if (!element) throw new Error("Template not mounted");
 
-          // allowTaint fixes issues with local images not loading in the canvas
+          // CRITICAL FIX: Force background color and use strict dimensions to ensure html2canvas doesn't crash on hidden elements
           const canvas = await html2canvas(element, { 
             scale: 2, 
             useCORS: true,
             allowTaint: true,
-            logging: false
+            backgroundColor: "#ffffff",
+            windowWidth: element.scrollWidth,
+            windowHeight: element.scrollHeight
           });
+          
           const imgData = canvas.toDataURL("image/png");
           
           const pdf = new jsPDF("p", "mm", "a4");
@@ -304,7 +307,8 @@ export default function TeacherDailyMarks() {
           
           setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
         } catch (err) {
-          setToast({ msg: "Failed to render PDF canvas.", type: "error" });
+          console.error("PDF Render Error:", err);
+          setToast({ msg: "Failed to render PDF canvas. Check console for details.", type: "error" });
         } finally {
           setIsGeneratingPDF(false);
           setPdfResults(null);
@@ -333,17 +337,17 @@ export default function TeacherDailyMarks() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative overflow-x-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* --- HIDDEN PDF TEMPLATE (Absolute positioned, opacity 0, pointer events disabled) --- */}
+      {/* --- CRITICAL FIX: Push far off screen instead of opacity-0 to guarantee rendering --- */}
       {pdfResults && selectedProgram && (
         <div 
           id="hidden-pdf-report"
-          className="absolute top-0 left-0 w-[210mm] bg-white text-black p-12 -z-50 opacity-0 pointer-events-none"
+          className="absolute bg-white text-black p-12 -z-50 pointer-events-none"
+          style={{ width: "210mm", top: "0", left: "-9999px" }}
         >
           <div className="text-center border-b-2 border-[#001232] pb-6 mb-8">
-            {/* Removed crossOrigin attribute as allowTaint now handles local assets */}
             <img src="/mutoon-logo.png" alt="Institute Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
             <h1 className="text-4xl font-extrabold text-[#001232]">Institute of Mutoon</h1>
             <h2 className="text-2xl text-[#FFB902] mt-3 font-semibold" dir="auto">{selectedProgram.titleEn}</h2>
