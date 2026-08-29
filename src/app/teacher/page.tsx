@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { 
   LogOut, User, CheckCircle2, AlertCircle, 
-  CalendarDays, GraduationCap, Award, Lock, Info, ChevronDown, X, Users, ChevronRight
+  CalendarDays, GraduationCap, Award, Lock, Info, ChevronDown, X, Users, ChevronRight, KeyRound
 } from "lucide-react";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 interface UserData {
   id: string;
@@ -46,6 +47,7 @@ export default function TeacherPortalHub() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingAdmissionsCount, setPendingAdmissionsCount] = useState<number>(0);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -140,8 +142,18 @@ export default function TeacherPortalHub() {
             </button>
 
             {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center">
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50">
+                <button 
+                  onClick={() => {
+                    setIsChangePasswordOpen(true);
+                    setIsProfileOpen(false);
+                  }} 
+                  className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+                >
+                  <KeyRound className="w-4 h-4 mr-2 text-[#FFB902]" /> Change Password
+                </button>
+                <div className="border-t border-gray-100 my-1" />
+                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center transition-colors">
                   <LogOut className="w-4 h-4 mr-2" /> Log Out
                 </button>
               </div>
@@ -236,6 +248,16 @@ export default function TeacherPortalHub() {
           &copy; {new Date().getFullYear()} Quadrox Technologies
         </p>
       </footer>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onSuccess={() => {
+          setToastType("success");
+          setToastMessage("Password changed successfully!");
+        }}
+      />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

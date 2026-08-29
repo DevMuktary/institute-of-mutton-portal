@@ -325,3 +325,149 @@ export const sendApplicationRejectedEmail = async (
   }
 };
 
+export const sendPasswordChangeOtpEmail = async (
+  email: string,
+  fullName: string,
+  otpCode: string
+) => {
+  if (!process.env.ZEPTOMAIL_API_KEY || !process.env.ZEPTOMAIL_SENDER_EMAIL) {
+    console.warn(`⚠️ Email credentials missing. OTP email to ${email} skipped.`);
+    return;
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-railway-domain.com";
+  const logoUrl = `${appUrl}/mutoon-logo.png`;
+
+  const htmlTemplate = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
+      <table width="100%" max-width="600px" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; border-spacing: 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <tr>
+          <td style="background-color: #001232; padding: 32px 24px; text-align: center;">
+            <img src="${logoUrl}" alt="Institute of Mutoon" style="width: 72px; height: auto; background-color: white; padding: 8px; border-radius: 12px; margin-bottom: 12px;" />
+            <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold; letter-spacing: -0.5px;">Institute of Mutoon</h1>
+            <p style="color: #FFB902; margin: 4px 0 0 0; font-size: 13px; font-weight: 600;">Account Security Verification</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 36px 28px; color: #334155; line-height: 1.6; text-align: center;">
+            <h2 style="color: #001232; margin-top: 0; font-size: 20px;">Password Change Verification Code</h2>
+            <p>As-salamu alaykum, <strong>${fullName}</strong>.</p>
+            <p style="color: #64748b; font-size: 14px;">We received a request to change the password for your student portal account. Please use the verification code below to authorize this change:</p>
+            
+            <div style="background-color: #f8fafc; border: 2px dashed #001232; border-radius: 12px; padding: 20px 24px; margin: 24px auto; max-width: 280px; text-align: center;">
+              <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #001232;">${otpCode}</span>
+            </div>
+
+            <p style="font-size: 13px; color: #e11d48; font-weight: 600;">
+              ⏳ This code is valid for 10 minutes only.
+            </p>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+              If you did not request to change your password, please change your credentials immediately or contact support. Never share this code with anyone.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  try {
+    const token = process.env.ZEPTOMAIL_API_KEY;
+    const apiKey = token.startsWith("Zoho-enczapikey") ? token : `Zoho-enczapikey ${token}`;
+
+    const response = await fetch("https://api.zeptomail.com/v1.1/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({
+        from: { address: process.env.ZEPTOMAIL_SENDER_EMAIL, name: "Institute of Mutoon Security" },
+        to: [{ email_address: { address: email, name: fullName } }],
+        subject: `Your Security Verification Code: ${otpCode} - Institute of Mutoon`,
+        htmlbody: htmlTemplate
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("ZeptoMail OTP Email Error:", await response.text());
+    }
+  } catch (error) {
+    console.error("Failed to send OTP email:", error);
+  }
+};
+
+export const sendPasswordChangedConfirmationEmail = async (
+  email: string,
+  fullName: string
+) => {
+  if (!process.env.ZEPTOMAIL_API_KEY || !process.env.ZEPTOMAIL_SENDER_EMAIL) {
+    return;
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://your-railway-domain.com";
+  const logoUrl = `${appUrl}/mutoon-logo.png`;
+
+  const htmlTemplate = `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f5; margin: 0; padding: 20px;">
+      <table width="100%" max-width="600px" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; border-spacing: 0;">
+        <tr>
+          <td style="background-color: #001232; padding: 32px 24px; text-align: center;">
+            <img src="${logoUrl}" alt="Institute of Mutoon" style="width: 72px; height: auto; background-color: white; padding: 8px; border-radius: 12px; margin-bottom: 12px;" />
+            <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold;">Institute of Mutoon</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 36px 28px; color: #334155; line-height: 1.6;">
+            <h2 style="color: #001232; margin-top: 0; font-size: 20px;">Your Password Has Been Changed</h2>
+            <p>As-salamu alaykum, <strong>${fullName}</strong>.</p>
+            <p>This email confirms that the password for your Institute of Mutoon student account (${email}) was recently updated successfully using OTP verification.</p>
+            <div style="background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 14px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #15803d; font-size: 13px; font-weight: 600;">
+                ✓ Password changed successfully on ${new Date().toUTCString()}
+              </p>
+            </div>
+            <p style="font-size: 13px; color: #64748b;">
+              If you did not perform this change, please reset your password immediately or contact administration.
+            </p>
+            <div style="margin-top: 24px; text-align: center;">
+              <a href="${appUrl}/login" style="display: inline-block; background-color: #001232; color: #FFB902; text-decoration: none; padding: 12px 28px; font-weight: bold; font-size: 14px; border-radius: 8px;">Go to Portal Login</a>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  try {
+    const token = process.env.ZEPTOMAIL_API_KEY;
+    const apiKey = token.startsWith("Zoho-enczapikey") ? token : `Zoho-enczapikey ${token}`;
+
+    await fetch("https://api.zeptomail.com/v1.1/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": apiKey,
+      },
+      body: JSON.stringify({
+        from: { address: process.env.ZEPTOMAIL_SENDER_EMAIL, name: "Institute of Mutoon Security" },
+        to: [{ email_address: { address: email, name: fullName } }],
+        subject: `Security Alert: Your Password Was Changed - Institute of Mutoon`,
+        htmlbody: htmlTemplate
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to send confirmation email:", error);
+  }
+};
+
+

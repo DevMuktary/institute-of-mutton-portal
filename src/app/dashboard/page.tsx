@@ -6,8 +6,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { 
   BookOpen, LogOut, User, Clock, AlertCircle, 
-  CalendarDays, GraduationCap, Award, Lock, ArrowRight, Info, ChevronDown, X
+  CalendarDays, GraduationCap, Award, Lock, ArrowRight, Info, ChevronDown, X, KeyRound
 } from "lucide-react";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 interface Program {
   id: string;
@@ -68,6 +69,7 @@ export default function DashboardPage() {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -217,6 +219,15 @@ export default function DashboardPage() {
 
                   {/* Actions */}
                   <div className="px-2">
+                    <button 
+                      onClick={() => {
+                        setIsChangePasswordOpen(true);
+                        setIsProfileOpen(false);
+                      }} 
+                      className="w-full text-left px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#001232] rounded-xl flex items-center transition-colors"
+                    >
+                      <KeyRound className="w-4 h-4 mr-3 text-[#FFB902]" /> Change Password
+                    </button>
                     <button onClick={() => showComingSoon("Profile Management")} className="w-full text-left px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#001232] rounded-xl flex items-center transition-colors">
                       <User className="w-4 h-4 mr-3 text-gray-400" /> My Profile
                     </button>
@@ -358,6 +369,16 @@ export default function DashboardPage() {
           </a>
         </p>
       </footer>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        onSuccess={() => {
+          setToastType("success");
+          setToastMessage("Password changed successfully!");
+        }}
+      />
 
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
