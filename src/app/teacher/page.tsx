@@ -45,6 +45,7 @@ export default function TeacherPortalHub() {
   const router = useRouter();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingAdmissionsCount, setPendingAdmissionsCount] = useState<number>(0);
   
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -63,6 +64,19 @@ export default function TeacherPortalHub() {
           return router.push("/dashboard"); 
         }
         setUserData(json.data);
+
+        // Fetch pending admissions count
+        try {
+          const admRes = await fetch("/api/teacher/admissions?status=PENDING");
+          if (admRes.ok) {
+            const admJson = await admRes.json();
+            if (admJson.success && admJson.data?.stats) {
+              setPendingAdmissionsCount(admJson.data.stats.pending || 0);
+            }
+          }
+        } catch (e) {
+          // Non-critical, ignore
+        }
       } catch (err) {
         console.error("Failed to load user data");
       } finally {
@@ -162,19 +176,26 @@ export default function TeacherPortalHub() {
             <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
           </div>
 
-          {/* Admissions (Locked) */}
+          {/* Admissions (Active) */}
           <div 
-            onClick={() => showComingSoon("Admissions")}
-            className="flex items-center p-4 sm:p-5 hover:bg-[#f8fafc] cursor-pointer transition-colors active:bg-gray-100"
+            onClick={() => router.push(`/teacher/admissions`)}
+            className="flex items-center p-4 sm:p-5 hover:bg-[#f8fafc] cursor-pointer transition-colors active:bg-gray-100 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 border border-gray-100 flex items-center justify-center mr-4 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mr-4 shrink-0 group-hover:scale-105 transition-transform">
               <Users className="w-5 h-5" />
             </div>
             <div className="flex-grow">
-              <h3 className="text-[15px] font-bold text-gray-700">Admissions</h3>
-              <p className="text-[13px] text-gray-400 mt-0.5">Review student applications</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-bold text-[#001232]">Admissions & Applications</h3>
+                {pendingAdmissionsCount > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 animate-pulse">
+                    {pendingAdmissionsCount} pending
+                  </span>
+                )}
+              </div>
+              <p className="text-[13px] text-gray-500 mt-0.5">Review, approve, and manage student applications</p>
             </div>
-            <Lock className="w-4 h-4 text-gray-300 shrink-0 ml-2" />
+            <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
           </div>
 
           {/* Examinations (Locked) */}
