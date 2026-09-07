@@ -4,7 +4,7 @@ import { useState, useEffect, memo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import autoTable from "jspdf-autotable";
 import { 
   BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText, Loader2, Save
 } from "lucide-react";
@@ -133,8 +133,6 @@ export default function TeacherDailyMarks() {
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  
-  const [pdfResults, setPdfResults] = useState<any[] | null>(null);
   const [toast, setToast] = useState<{msg: string, type: "error"|"success"|"info"} | null>(null);
   const [showNav, setShowNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -274,73 +272,130 @@ export default function TeacherDailyMarks() {
   const handleDownloadPDF = async () => {
     if (!selectedProgram) return;
     setIsGeneratingPDF(true);
-    setToast({ msg: "Calculating scores & preparing document...", type: "info" });
+    setToast({ msg: "Calculating scores & generating PDF...", type: "info" });
 
     try {
       const res = await fetch(`/api/teacher/results?programId=${selectedProgram.id}`);
       if (!res.ok) throw new Error();
       const { data: results } = await res.json();
 
-      if (results.length === 0) {
+      if (!results || results.length === 0) {
         setIsGeneratingPDF(false);
         return setToast({ msg: "No approved students found for this program.", type: "error" });
       }
 
-      setPdfResults(results);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
 
-      // Reduced timeout drastically to speed up generation
-      setTimeout(async () => {
-        try {
-          const element = document.getElementById("hidden-pdf-report");
-          if (!element) throw new Error("Template not mounted");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-          // Optimized canvas generation (scale 1.5 is faster but still sharp)
-          const canvas = await html2canvas(element, { 
-            scale: 1.5, 
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: "#ffffff",
-            windowWidth: element.scrollWidth,
-            windowHeight: element.scrollHeight
-          });
-          
-          const imgData = canvas.toDataURL("image/png");
-          
-          const pdf = new jsPDF("p", "mm", "a4");
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-          
-          let heightLeft = imgHeight;
-          let position = 0;
+      // Load logo if available
+      let logoLoaded = false;
+      try {
+        const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "Anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = "/mutoon-logo.png";
+        });
+        pdf.addImage(logoImg, "PNG", (pageWidth - 20) / 2, 10, 20, 20);
+        logoLoaded = true;
+      } catch (err) {
+        console.warn("Logo not available for PDF:", err);
+      }
 
-          // Add the first page
-          pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
-          heightLeft -= pageHeight;
+      const headerStartY = logoLoaded ? 34 : 16;
 
-          // Slicing Engine: Add new pages seamlessly if the image is taller than an A4 page
-          while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
-            heightLeft -= pageHeight;
-          }
-          
-          const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
-          pdf.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
-          
-          setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
-        } catch (err) {
-          console.error("PDF Render Error:", err);
-          setToast({ msg: "Failed to render PDF. Check console for details.", type: "error" });
-        } finally {
-          setIsGeneratingPDF(false);
-          setPdfResults(null);
-        }
-      }, 300); // Wait just 300ms instead of 1500ms
+      // Header Texts
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(17);
+      pdf.setTextColor(0, 18, 50); // #001232
+      pdf.text("Institute of Mutoon", pageWidth / 2, headerStartY, { align: "center" });
 
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.setTextColor(200, 140, 0); // Gold tone
+      pdf.text(selectedProgram.titleEn, pageWidth / 2, headerStartY + 6.5, { align: "center" });
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(71, 85, 105); // Slate 600
+      pdf.text("DAILY MARKS REPORT & RANKINGS", pageWidth / 2, headerStartY + 12.5, { align: "center" });
+
+      // Dividing Line
+      pdf.setDrawColor(226, 232, 240);
+      pdf.setLineWidth(0.4);
+      pdf.line(14, headerStartY + 16, pageWidth - 14, headerStartY + 16);
+
+      // AutoTable Data
+      autoTable(pdf, {
+        startY: headerStartY + 20,
+        margin: { left: 14, right: 14, top: 20, bottom: 20 },
+        head: [["Rank", "Full Name", "Total Daily Score"]],
+        body: results.map((row: any, index: number) => [
+          (index + 1).toString(),
+          row.fullName,
+          row.programTotalScore.toString(),
+        ]),
+        theme: "plain",
+        styles: {
+          font: "helvetica",
+          fontSize: 9.5,
+          cellPadding: 3.5,
+          textColor: [30, 41, 59],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.2,
+          valign: "middle",
+        },
+        headStyles: {
+          fillColor: [0, 18, 50],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+          valign: "middle",
+          cellPadding: 4,
+          fontSize: 10,
+        },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 22, fontStyle: "bold" },
+          1: { halign: "left", fontStyle: "bold" },
+          2: {
+            halign: "center",
+            cellWidth: 42,
+            fontStyle: "bold",
+            fillColor: [255, 243, 205],
+            textColor: [0, 18, 50],
+          },
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        didDrawPage: (data) => {
+          pdf.setFontSize(8);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(148, 163, 184);
+
+          const timestamp = `Generated by Institute of Mutoon Portal • ${new Date().toLocaleString()}`;
+          pdf.text(timestamp, 14, pageHeight - 10);
+
+          const pageStr = `Page ${data.pageNumber}`;
+          pdf.text(pageStr, pageWidth - 14, pageHeight - 10, { align: "right" });
+        },
+      });
+
+      const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9 -]/g, "");
+      pdf.save(`Daily_Marks_Report_${cleanTitle}.pdf`);
+
+      setToast({ msg: "PDF Downloaded Successfully!", type: "success" });
     } catch (err) {
-      setToast({ msg: "Failed to fetch PDF data.", type: "error" });
+      console.error("PDF Generation Error:", err);
+      setToast({ msg: "Failed to generate PDF report.", type: "error" });
+    } finally {
       setIsGeneratingPDF(false);
     }
   };
@@ -363,46 +418,6 @@ export default function TeacherDailyMarks() {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative overflow-x-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-
-      {/* --- HIDDEN PDF TEMPLATE --- */}
-      {pdfResults && selectedProgram && (
-        <div 
-          id="hidden-pdf-report"
-          className="absolute -z-50 pointer-events-none"
-          style={{ width: "210mm", top: "0", left: "-9999px", padding: "3rem", backgroundColor: "#ffffff", color: "#000000" }}
-        >
-          <div style={{ textAlign: "center", borderBottom: "2px solid #001232", paddingBottom: "1.5rem", marginBottom: "2rem" }}>
-            <img src="/mutoon-logo.png" alt="Institute Logo" style={{ width: "6rem", height: "6rem", margin: "0 auto 1rem auto", objectFit: "contain" }} />
-            <h1 style={{ fontSize: "2.25rem", fontWeight: "800", color: "#001232", margin: 0 }}>Institute of Mutoon</h1>
-            <h2 style={{ fontSize: "1.5rem", color: "#FFB902", marginTop: "0.75rem", fontWeight: "600", margin: 0 }} dir="auto">{selectedProgram.titleEn}</h2>
-            <h3 style={{ fontSize: "1.25rem", fontWeight: "bold", color: "#374151", marginTop: "0.5rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>Daily Marks Report & Rankings</h3>
-          </div>
-          
-          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #d1d5db" }}>
-            <thead>
-              <tr style={{ backgroundColor: "#001232", color: "#ffffff", fontSize: "1.125rem" }}>
-                <th style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", width: "6rem" }}>Rank</th>
-                <th style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "left" }}>Full Name</th>
-                <th style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", width: "12rem" }}>Total Daily Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pdfResults.map((row, index) => (
-                <tr key={index} style={{ backgroundColor: index % 2 === 0 ? "#f9fafb" : "#ffffff" }}>
-                  <td style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", fontWeight: "bold", fontSize: "1.125rem" }}>{index + 1}</td>
-                  <td style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "left", fontWeight: "bold", fontSize: "1.125rem" }} dir="auto">{row.fullName}</td>
-                  <td style={{ border: "1px solid #d1d5db", padding: "1rem", textAlign: "center", fontWeight: "800", fontSize: "1.25rem", backgroundColor: "#fff3cd", color: "#001232" }}>
-                    {row.programTotalScore}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "0.875rem", fontWeight: "600", color: "#6b7280" }}>
-            Generated by Institute of Mutoon Portal • {new Date().toLocaleString()}
-          </div>
-        </div>
-      )}
 
       <nav className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${showNav ? "translate-y-0" : "-translate-y-full"}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
