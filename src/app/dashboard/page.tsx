@@ -317,23 +317,21 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* 2. Examinations Card (Clean, Frosted Style) */}
+                {/* 2. Examinations Card (Active) */}
                 <div 
-                  onClick={() => showComingSoon("Examinations")}
-                  className="group relative overflow-hidden rounded-[1.5rem] p-5 sm:p-6 cursor-not-allowed bg-white border border-gray-200 transition-all hover:border-gray-300 hover:shadow-md flex flex-col h-full"
+                  onClick={() => router.push("/dashboard/examinations")}
+                  className="group relative overflow-hidden rounded-[1.5rem] p-5 sm:p-6 cursor-pointer bg-white border border-gray-200 transition-all hover:border-[#001232] hover:shadow-lg flex flex-col h-full"
                 >
-                  <div className="absolute top-5 right-5">
-                    <div className="bg-gray-50 p-1.5 rounded-full border border-gray-100">
-                      <Lock className="w-3.5 h-3.5 text-gray-300" />
-                    </div>
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-gray-50 text-gray-400 flex items-center justify-center mb-4 border border-gray-100">
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mb-4 border border-purple-100 group-hover:scale-105 transition-transform">
                     <GraduationCap className="w-6 h-6" />
                   </div>
-                  <h3 className="text-xl font-extrabold text-gray-400 mb-2">Examinations</h3>
-                  <p className="text-gray-400 text-[14px] leading-relaxed flex-grow">
-                    Take your exams and view your assessment results.
+                  <h3 className="text-xl font-extrabold text-[#001232] mb-2">Examinations</h3>
+                  <p className="text-gray-500 text-[14px] leading-relaxed flex-grow">
+                    Access your scheduled objective assessments and mutoon exams.
                   </p>
+                  <div className="mt-5 flex items-center text-[#001232] font-bold text-[14px]">
+                    Enter Assessments <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-2 transition-transform duration-300 text-[#FFB902]" />
+                  </div>
                 </div>
 
                 {/* 3. Final Result Card (Clean, Frosted Style) */}

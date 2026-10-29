@@ -325,7 +325,7 @@ export default function TeacherDailyMarks() {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9.5);
       pdf.setTextColor(71, 85, 105); // Slate 600
-      pdf.text("DAILY MARKS REPORT & RANKINGS", pageWidth / 2, headerStartY + 12.5, { align: "center" });
+      pdf.text("ACADEMIC PERFORMANCE & EXAMINATION REPORT", pageWidth / 2, headerStartY + 12.5, { align: "center" });
 
       // Dividing Line
       pdf.setDrawColor(226, 232, 240);
@@ -336,17 +336,20 @@ export default function TeacherDailyMarks() {
       autoTable(pdf, {
         startY: headerStartY + 20,
         margin: { left: 14, right: 14, top: 20, bottom: 20 },
-        head: [["Rank", "Full Name", "Total Daily Score"]],
+        head: [["Rank", "Full Name", "Daily Score", "Examination", "Grand Total", "Grade"]],
         body: results.map((row: any, index: number) => [
           (index + 1).toString(),
           row.fullName,
-          row.programTotalScore.toString(),
+          (row.dailyScore ?? 0).toString(),
+          row.examScore?.toString() || "--",
+          (row.grandTotal ?? 0).toString(),
+          row.grade || "-",
         ]),
         theme: "plain",
         styles: {
           font: "helvetica",
-          fontSize: 9.5,
-          cellPadding: 3.5,
+          fontSize: 9,
+          cellPadding: 3.2,
           textColor: [30, 41, 59],
           lineColor: [226, 232, 240],
           lineWidth: 0.2,
@@ -359,18 +362,21 @@ export default function TeacherDailyMarks() {
           halign: "center",
           valign: "middle",
           cellPadding: 4,
-          fontSize: 10,
+          fontSize: 9.5,
         },
         columnStyles: {
-          0: { halign: "center", cellWidth: 22, fontStyle: "bold" },
+          0: { halign: "center", cellWidth: 16, fontStyle: "bold" },
           1: { halign: "left", fontStyle: "bold" },
-          2: {
+          2: { halign: "center", cellWidth: 26 },
+          3: { halign: "center", cellWidth: 28, fontStyle: "bold", textColor: [2, 132, 199] },
+          4: {
             halign: "center",
-            cellWidth: 42,
+            cellWidth: 28,
             fontStyle: "bold",
             fillColor: [255, 243, 205],
             textColor: [0, 18, 50],
           },
+          5: { halign: "center", cellWidth: 20, fontStyle: "bold", textColor: [180, 83, 9] },
         },
         alternateRowStyles: {
           fillColor: [248, 250, 252],

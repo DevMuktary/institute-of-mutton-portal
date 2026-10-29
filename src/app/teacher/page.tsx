@@ -210,19 +210,19 @@ export default function TeacherPortalHub() {
             <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
           </div>
 
-          {/* Examinations (Locked) */}
+          {/* Examinations (Active) */}
           <div 
-            onClick={() => showComingSoon("Examinations")}
-            className="flex items-center p-4 sm:p-5 hover:bg-[#f8fafc] cursor-pointer transition-colors active:bg-gray-100"
+            onClick={() => router.push(`/teacher/examinations`)}
+            className="flex items-center p-4 sm:p-5 hover:bg-[#f8fafc] cursor-pointer transition-colors active:bg-gray-100 group"
           >
-            <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 border border-gray-100 flex items-center justify-center mr-4 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mr-4 shrink-0 group-hover:scale-105 transition-transform">
               <GraduationCap className="w-5 h-5" />
             </div>
             <div className="flex-grow">
-              <h3 className="text-[15px] font-bold text-gray-700">Examinations</h3>
-              <p className="text-[13px] text-gray-400 mt-0.5">Schedule & record assessments</p>
+              <h3 className="text-[15px] font-bold text-[#001232]">Examinations</h3>
+              <p className="text-[13px] text-gray-500 mt-0.5">Create, schedule & live proctor assessments</p>
             </div>
-            <Lock className="w-4 h-4 text-gray-300 shrink-0 ml-2" />
+            <ChevronRight className="w-5 h-5 text-gray-400 shrink-0 ml-2" />
           </div>
 
           {/* Final Results (Locked) */}

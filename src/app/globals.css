@@ -14,10 +14,20 @@
   --color-brand-amber: var(--brand-amber);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-amiri: var(--font-amiri);
+  --font-cairo: var(--font-cairo);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+.font-amiri {
+  font-family: var(--font-amiri), 'Amiri', 'Traditional Arabic', serif;
+}
+
+.font-cairo {
+  font-family: var(--font-cairo), 'Cairo', sans-serif;
 }

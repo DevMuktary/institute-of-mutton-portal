@@ -45,29 +45,58 @@ export async function GET(request: NextRequest) {
 
     const studentIds = enrollments.map(e => e.user.id);
 
-    // 2. Aggregate sum of daily marks per student ONLY
+    // 2. Aggregate sum of daily marks per student
     const dailyMarksSum = await prisma.dailyMark.groupBy({
       by: ['studentId'],
       where: { programId, studentId: { in: studentIds } },
       _sum: { score: true }
     });
 
-    // 3. Combine, Calculate, and Sort
+    // 3. Fetch Exam Marks per student
+    const examMarks = await prisma.examMark.findMany({
+      where: { programId, studentId: { in: studentIds } }
+    });
+
+    // 4. Combine, Calculate Grand Total, and Assign Grade
     const finalResults = enrollments.map(enrollment => {
       const studentId = enrollment.user.id;
       
       const dailySumObj = dailyMarksSum.find(d => d.studentId === studentId);
-      const programTotalScore = dailySumObj?._sum.score || 0;
+      const dailyScore = dailySumObj?._sum.score || 0;
+
+      const examMarkObj = examMarks.find(em => em.studentId === studentId);
+      const examScore = examMarkObj?.score !== null && examMarkObj?.score !== undefined 
+        ? Number(examMarkObj.score) 
+        : null;
+
+      const grandTotal = dailyScore + (examScore ?? 0);
+
+      let grade = "-";
+      if (examScore !== null) {
+        // Compute letter grade on 60 or scale
+        const pct = (examScore / 60) * 100;
+        if (pct >= 80) grade = "A";
+        else if (pct >= 65) grade = "B";
+        else if (pct >= 50) grade = "C";
+        else if (pct >= 40) grade = "D";
+        else grade = "F";
+      }
 
       return {
+        studentId,
         fullName: enrollment.user.fullName,
-        programTotalScore
+        dailyScore,
+        examScore: examScore !== null ? examScore : "--",
+        hasExamScore: examScore !== null,
+        grandTotal,
+        grade,
+        programTotalScore: dailyScore // Kept for backwards compatibility
       };
     });
 
-    // Sort: Highest Total Daily Score First, then Alphabetical
+    // Sort: Highest Grand Total First, then Alphabetical
     finalResults.sort((a, b) => {
-      if (b.programTotalScore !== a.programTotalScore) return b.programTotalScore - a.programTotalScore;
+      if (b.grandTotal !== a.grandTotal) return b.grandTotal - a.grandTotal;
       return a.fullName.localeCompare(b.fullName);
     });
 

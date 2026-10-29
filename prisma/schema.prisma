@@ -37,6 +37,7 @@ model User {
   dailyMarks       DailyMark[]  @relation("StudentMarks")
   markedMarks      DailyMark[]  @relation("TeacherMarks") 
   examMarks        ExamMark[]
+  examAttempts     ExamAttempt[]
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 }
@@ -53,6 +54,7 @@ model Program {
   enrollments      Enrollment[]
   dailyMarks       DailyMark[]
   examMarks        ExamMark[]                   // New relation back to exams
+  exams            Exam[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 }
@@ -103,4 +105,103 @@ model ExamMark {
   date      DateTime @default(now())
 
   @@unique([studentId, programId]) // Ensures one exam score per student per program
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  TIMED_OUT
+}
+
+model Exam {
+  id              String         @id @default(uuid())
+  programId       String
+  program         Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  instructions    String?
+  
+  startsAt        DateTime       // Date & time the exam opens
+  endsAt          DateTime       // Date & time the exam closes
+  durationMinutes Int            // Student countdown timer in minutes
+  
+  totalMarks      Float          @default(60.0)
+  markPerQuestion Float          @default(2.0)
+  
+  status          ExamStatus     @default(DRAFT)
+  
+  questions       ExamQuestion[]
+  attempts        ExamAttempt[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([programId])
+}
+
+model ExamQuestion {
+  id            String       @id @default(uuid())
+  examId        String
+  exam          Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  order         Int          // 1, 2, 3...
+  questionText  String       // Arabic / English text
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String       // "A" | "B" | "C" | "D"
+  marks         Float        @default(2.0)
+  
+  answers       ExamAnswer[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([examId, order])
+}
+
+model ExamAttempt {
+  id                String        @id @default(uuid())
+  examId            String
+  exam              Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           User          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  status            AttemptStatus @default(IN_PROGRESS)
+  startedAt         DateTime      @default(now())
+  submittedAt       DateTime?
+  
+  scoreObtained     Float?
+  grade             String?       // "A", "B", "C", "D", "F"
+  
+  tabSwitches       Int           @default(0)
+  
+  answers           ExamAnswer[]
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([studentId, examId])
+  @@index([examId, status])
+}
+
+model ExamAnswer {
+  id             String       @id @default(uuid())
+  attemptId      String
+  attempt        ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  selectedOption String?      // "A" | "B" | "C" | "D"
+  isCorrect      Boolean?
+  marksAwarded   Float?       @default(0.0)
+
+  @@unique([attemptId, questionId])
 }
