@@ -36,7 +36,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          images: ghcr.io/devmuktary/institute-of-mutton-portal
           tags: |
             type=raw,value=latest
             type=sha,format=short
@@ -53,7 +53,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger Coolify Deployment Webhook
-        if: ${{ env.COOLIFY_WEBHOOK_URL != '' }}
+        if: ${{ secrets.COOLIFY_WEBHOOK_URL != '' }}
+        continue-on-error: true
         env:
           COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}

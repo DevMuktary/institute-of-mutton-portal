@@ -5,15 +5,19 @@ WORKDIR /app
 
 # Step 1: Dependencies installation
 FROM base AS deps
+WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+COPY prisma ./prisma/
+COPY prisma.config.ts ./
+RUN npm ci --ignore-scripts
 
 # Step 2: Build the application
 FROM base AS builder
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Set dummy build-time environment variables for Next.js compilation
+# Set build-time environment variables for Next.js compilation
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mutoon"
