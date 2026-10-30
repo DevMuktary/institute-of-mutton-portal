@@ -124,6 +124,38 @@ export async function POST(
       }
     });
 
+    // Student-specific question randomization:
+    // Each student gets a uniquely randomized sequence of questions based on their attempt ID.
+    // If the student refreshes their browser, the seed ensures the identical order is maintained.
+    const shuffleForAttempt = <T>(items: T[], seedStr: string): T[] => {
+      let h = 0x811c9dc5;
+      for (let i = 0; i < seedStr.length; i++) {
+        h ^= seedStr.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      let s = h >>> 0;
+      const rng = () => {
+        let t = (s += 0x6d2b79f5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+
+      // Renumber display order for the student view (1, 2, ..., N)
+      return copy.map((q: any, idx: number) => ({
+        ...q,
+        order: idx + 1
+      }));
+    };
+
+    const randomizedQuestions = shuffleForAttempt(exam.questions, attempt.id);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -131,7 +163,7 @@ export async function POST(
         examTitle: exam.title,
         durationMinutes: exam.durationMinutes,
         remainingSeconds,
-        questions: exam.questions,
+        questions: randomizedQuestions,
         answers: answersMap,
         tabSwitches: attempt.tabSwitches
       }
