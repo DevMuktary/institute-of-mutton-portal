@@ -59,9 +59,10 @@ function CreateExamWizard() {
 
   const [startsAt, setStartsAt] = useState(getTodayTimeString(8, 0));
   const [endsAt, setEndsAt] = useState(getTodayTimeString(20, 0));
-  const [durationMinutes, setDurationMinutes] = useState(45);
-  const [markPerQuestion, setMarkPerQuestion] = useState(2);
-  const [totalMarks, setTotalMarks] = useState(60);
+  const [durationMinutes, setDurationMinutes] = useState<number | string>(45);
+  const [markPerQuestion, setMarkPerQuestion] = useState<number | string>(2);
+  const [totalMarks, setTotalMarks] = useState<number | string>(60);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Step 3: Questions
   const [questions, setQuestions] = useState<QuestionInput[]>([
@@ -155,7 +156,10 @@ function CreateExamWizard() {
 
   // Update total marks whenever markPerQuestion or questions count changes
   useEffect(() => {
-    setTotalMarks(questions.length * markPerQuestion);
+    const num = Number(markPerQuestion);
+    if (!isNaN(num) && num > 0) {
+      setTotalMarks(questions.length * num);
+    }
   }, [questions.length, markPerQuestion]);
 
   // Step 1 Validation
@@ -177,7 +181,7 @@ function CreateExamWizard() {
     if (new Date(endsAt) <= new Date(startsAt)) {
       return setToast({ msg: "Availability close time must be after start time.", type: "error" });
     }
-    if (durationMinutes < 5) {
+    if (Number(durationMinutes) < 5) {
       return setToast({ msg: "Exam duration must be at least 5 minutes.", type: "error" });
     }
     setCurrentStep(3);
@@ -195,7 +199,7 @@ function CreateExamWizard() {
         optionC: "",
         optionD: "",
         correctOption: "A",
-        marks: markPerQuestion
+        marks: Number(markPerQuestion) || 2
       }
     ]);
   };
@@ -345,6 +349,27 @@ function CreateExamWizard() {
     }
   };
 
+  const handleDeleteExam = async () => {
+    if (!examId) return;
+    if (!confirm("Are you sure you want to permanently delete this examination? All questions and student attempts will be removed.")) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/teacher/exams/${examId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete exam");
+      setToast({ msg: "Examination deleted successfully.", type: "info" });
+      setTimeout(() => {
+        router.push("/teacher/examinations");
+      }, 800);
+    } catch (err: any) {
+      setToast({ msg: err.message || "Failed to delete exam", type: "error" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoadingExisting) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4">
@@ -398,21 +423,40 @@ function CreateExamWizard() {
               </p>
             </div>
 
-            {/* Quick Draft Save Action */}
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              disabled={isSavingDraft}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#001232] text-xs font-bold rounded-xl shadow-2xs transition-colors disabled:opacity-50 shrink-0"
-              title="Save draft progress"
-            >
-              {isSavingDraft ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#001232]" />
-              ) : (
-                <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+            {/* Quick Actions (Delete if editing + Draft Save) */}
+            <div className="flex items-center gap-2">
+              {examId && (
+                <button
+                  type="button"
+                  onClick={handleDeleteExam}
+                  disabled={isDeleting}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors disabled:opacity-50 shrink-0"
+                  title="Delete this examination"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  )}
+                  <span>Delete</span>
+                </button>
               )}
-              <span>Save Draft</span>
-            </button>
+
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-[#001232] text-xs font-bold rounded-xl shadow-2xs transition-colors disabled:opacity-50 shrink-0"
+                title="Save draft progress"
+              >
+                {isSavingDraft ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#001232]" />
+                ) : (
+                  <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                )}
+                <span>Save Draft</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -631,7 +675,15 @@ function CreateExamWizard() {
                     min="5"
                     max="180"
                     value={durationMinutes}
-                    onChange={e => setDurationMinutes(Number(e.target.value))}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setDurationMinutes(val === "" ? "" : Number(val));
+                    }}
+                    onBlur={() => {
+                      if (!durationMinutes || Number(durationMinutes) <= 0) {
+                        setDurationMinutes(45);
+                      }
+                    }}
                     required
                     className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
                   />
@@ -648,9 +700,18 @@ function CreateExamWizard() {
                     max="20"
                     value={markPerQuestion}
                     onChange={e => {
-                      const m = Number(e.target.value);
-                      setMarkPerQuestion(m);
-                      setQuestions(prev => prev.map(q => ({ ...q, marks: m })));
+                      const val = e.target.value;
+                      const nextVal = val === "" ? "" : Number(val);
+                      setMarkPerQuestion(nextVal);
+                      if (typeof nextVal === "number" && nextVal > 0) {
+                        setQuestions(prev => prev.map(q => ({ ...q, marks: nextVal })));
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!markPerQuestion || Number(markPerQuestion) <= 0) {
+                        setMarkPerQuestion(2);
+                        setQuestions(prev => prev.map(q => ({ ...q, marks: 2 })));
+                      }
                     }}
                     className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
                   />
@@ -664,7 +725,16 @@ function CreateExamWizard() {
                   <input
                     type="number"
                     value={totalMarks}
-                    onChange={e => setTotalMarks(Number(e.target.value))}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setTotalMarks(val === "" ? "" : Number(val));
+                    }}
+                    onBlur={() => {
+                      if (!totalMarks || Number(totalMarks) <= 0) {
+                        const perQ = Number(markPerQuestion) || 2;
+                        setTotalMarks(questions.length * perQ);
+                      }
+                    }}
                     className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
                   />
                   <p className="text-[10px] text-gray-400 mt-1">e.g. 60 marks total.</p>

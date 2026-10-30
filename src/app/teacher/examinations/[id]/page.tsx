@@ -7,7 +7,7 @@ import Image from "next/image";
 import {
   ArrowLeft, RefreshCw, Users, CheckCircle2, AlertCircle,
   Clock, ShieldAlert, Award, FileText, ChevronDown, ChevronUp,
-  Loader2, Check, X, Search, Sparkles
+  Loader2, Check, X, Search, Sparkles, Trash2
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
 
@@ -82,6 +82,7 @@ export default function TeacherExamMonitoringPage({
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
@@ -136,6 +137,27 @@ export default function TeacherExamMonitoringPage({
       setToast({ msg: "Network error during sync.", type: "error" });
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteExam = async () => {
+    if (!confirm(`Are you sure you want to permanently delete this examination? All student attempts, scores, and answer audit logs will be permanently deleted.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/teacher/exams/${examId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/teacher/examinations");
+      } else {
+        const json = await res.json();
+        setToast({ msg: json.error || "Failed to delete examination.", type: "error" });
+        setIsDeleting(false);
+      }
+    } catch {
+      setToast({ msg: "Network error during deletion.", type: "error" });
+      setIsDeleting(false);
     }
   };
 
@@ -201,6 +223,16 @@ export default function TeacherExamMonitoringPage({
             >
               {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               <span>Sync to Master Sheet</span>
+            </button>
+
+            <button
+              onClick={handleDeleteExam}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs sm:text-sm font-bold rounded-xl shadow-2xs transition-all disabled:opacity-50 shrink-0"
+              title="Delete this examination permanently"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin text-red-600" /> : <Trash2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">Delete Exam</span>
             </button>
           </div>
         </div>
