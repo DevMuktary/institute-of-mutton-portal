@@ -9,6 +9,7 @@ import {
   Clock, ShieldAlert, Award, FileText, ChevronDown, ChevronUp,
   Loader2, Check, X, Search, Sparkles
 } from "lucide-react";
+import TeacherNavbar from "@/components/TeacherNavbar";
 
 interface StudentAnswerAudit {
   questionOrder: number;
@@ -167,44 +168,34 @@ export default function TeacherExamMonitoringPage({
         </div>
       )}
 
-      {/* Sticky Top Navbar */}
-      <nav className="w-full bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
-          <div className="flex items-center space-x-3">
-            <Link href="/teacher/examinations" className="p-2 -ml-2 text-gray-500 hover:text-[#001232] rounded-lg transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center space-x-2">
-              <Image src="/mutoon-logo.png" alt="Logo" width={24} height={24} className="object-contain" priority />
-              <span className="font-extrabold text-[#001232] text-lg">Exam Monitor</span>
-            </div>
-          </div>
+      {/* Teacher Navigation Header with Hamburger */}
+      <TeacherNavbar
+        title="Exam Monitor"
+        subtitle={exam?.title || "Live proctoring & results"}
+        backHref="/teacher/examinations"
+      >
+        <button
+          onClick={() => fetchMonitoringData(false)}
+          disabled={isRefreshing}
+          className="p-2 sm:p-2.5 text-gray-500 hover:text-[#001232] rounded-xl hover:bg-gray-100 transition-colors shrink-0"
+          title="Refresh Data"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
+        </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchMonitoringData(false)}
-              disabled={isRefreshing}
-              className="p-2 text-gray-500 hover:text-[#001232] rounded-xl hover:bg-gray-100 transition-colors"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
-            </button>
+        <button
+          onClick={handleSyncToMasterSheet}
+          disabled={isSyncing || submitted.length === 0}
+          className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 shrink-0"
+        >
+          {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          <span className="hidden sm:inline">Sync to Master Sheet</span>
+          <span className="sm:hidden">Sync</span>
+        </button>
+      </TeacherNavbar>
 
-            <button
-              onClick={handleSyncToMasterSheet}
-              disabled={isSyncing || submitted.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
-            >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span className="hidden sm:inline">Sync to Master Sheet</span>
-              <span className="sm:hidden">Sync</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Main Content with comfortable mobile spacing */}
+      <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         
         {/* Exam Title & Stats Banner */}
         {exam && (

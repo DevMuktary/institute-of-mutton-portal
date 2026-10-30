@@ -8,6 +8,7 @@ import autoTable from "jspdf-autotable";
 import { 
   BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText, Loader2, Save
 } from "lucide-react";
+import TeacherNavbar from "@/components/TeacherNavbar";
 
 interface Program {
   id: string;
@@ -425,16 +426,14 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative overflow-x-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      <nav className={`w-full bg-white border-b border-[#e2e8f0] shadow-sm fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out ${showNav ? "translate-y-0" : "-translate-y-full"}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
-          <h1 className="text-xl sm:text-2xl font-extrabold text-[#001232]">Marking Matrix</h1>
-          <Link href="/teacher" className="flex items-center text-sm font-bold text-[#475569] bg-[#f1f5f9] hover:bg-[#e2e8f0] px-4 py-2 rounded-lg transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Hub
-          </Link>
-        </div>
-      </nav>
+      {/* Teacher Navigation Header with Hamburger */}
+      <TeacherNavbar
+        title="Marking Matrix"
+        subtitle={selectedProgram ? selectedProgram.titleEn : "Daily memorization register"}
+        backHref="/teacher"
+      />
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8">
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {!selectedProgram ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {programs.map((program) => (

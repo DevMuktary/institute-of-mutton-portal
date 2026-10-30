@@ -9,6 +9,7 @@ import {
   Save, Loader2, Clock, Calendar, Check, ArrowRight,
   HelpCircle, ChevronRight, ChevronLeft, Bookmark, Send
 } from "lucide-react";
+import TeacherNavbar from "@/components/TeacherNavbar";
 
 interface Program {
   id: string;
@@ -371,36 +372,28 @@ function CreateExamWizard() {
         </div>
       )}
 
-      {/* Sticky Top Navbar */}
-      <nav className="w-full bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 flex justify-between items-center h-14 sm:h-16">
-          <div className="flex items-center space-x-2">
-            <Link href="/teacher/examinations" className="p-1.5 -ml-1.5 text-gray-500 hover:text-[#001232] rounded-lg">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center space-x-1.5">
-              <Image src="/mutoon-logo.png" alt="Logo" width={22} height={22} className="object-contain" priority />
-              <span className="font-extrabold text-[#001232] text-sm sm:text-base">
-                {examId ? "Edit Draft Exam" : "Create Exam"}
-              </span>
-            </div>
-          </div>
+      {/* Teacher Navigation Header with Hamburger */}
+      <TeacherNavbar
+        title={examId ? "Edit Draft Exam" : "Create Exam"}
+        subtitle="3-step assessment builder"
+        backHref="/teacher/examinations"
+      >
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={isSavingDraft}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#001232] text-xs font-bold rounded-xl transition-colors disabled:opacity-50 shrink-0"
+          title="Save draft progress"
+        >
+          {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5 text-amber-500" />}
+          <span className="hidden sm:inline">Save Draft</span>
+          <span className="sm:hidden">Save</span>
+        </button>
+      </TeacherNavbar>
 
-          {/* Quick Draft Save Action */}
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            disabled={isSavingDraft}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#001232] text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-            title="Save draft progress"
-          >
-            {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5 text-[#FFB902]" />}
-            <span>Save Draft</span>
-          </button>
-        </div>
-
-        {/* 3-Step Wizard Navigation Bar (Mobile-Optimized) */}
-        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between text-xs font-bold border-t border-gray-100 bg-[#fafafa]">
+      {/* 3-Step Wizard Navigation Bar (Spacious & Clean) */}
+      <div className="w-full bg-[#f8fafc] border-b border-gray-200 sticky top-16 sm:top-20 z-30 shadow-xs">
+        <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between text-xs font-bold">
           <button
             onClick={() => setCurrentStep(1)}
             className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg transition-colors ${
@@ -444,10 +437,10 @@ function CreateExamWizard() {
             <span>Questions ({questions.length})</span>
           </button>
         </div>
-      </nav>
+      </div>
 
-      {/* Main Content Area */}
-      <main className="flex-grow w-full max-w-2xl mx-auto px-4 sm:px-6 py-5 box-border">
+      {/* Main Content Area with generous mobile breathing space */}
+      <main className="flex-grow w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 box-border">
         
         {/* ==============================================
             PAGE 1: GENERAL INFORMATION

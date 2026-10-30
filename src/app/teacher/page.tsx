@@ -8,6 +8,7 @@ import {
   CalendarDays, GraduationCap, Award, Lock, Info, ChevronDown, X, Users, ChevronRight, KeyRound
 } from "lucide-react";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import TeacherNavbar from "@/components/TeacherNavbar";
 
 interface UserData {
   id: string;
@@ -122,47 +123,15 @@ export default function TeacherPortalHub() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
 
-      {/* Compact Navbar */}
-      <nav className="w-full bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
-          <div className="flex items-center space-x-2">
-            <Image src="/mutoon-logo.png" alt="Logo" width={24} height={24} className="object-contain" priority />
-            <span className="font-extrabold text-[#001232] text-lg leading-none">Mutoon Admin</span>
-          </div>
-          
-          <div className="relative" ref={dropdownRef}>
-            <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center space-x-2 focus:outline-none hover:opacity-80 transition-opacity">
-              <div className="hidden sm:block text-right mr-1">
-                <div className="text-sm font-bold text-[#001232] leading-tight">{userData.fullName.split(" ")[0]}</div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase">{userData.role}</div>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-[#001232] flex items-center justify-center text-[#FFB902]">
-                <User className="w-4 h-4" />
-              </div>
-            </button>
+      {/* Teacher Unified Header with Hamburger Navigation */}
+      <TeacherNavbar
+        title="Control Panel"
+        subtitle="Manage portal operations"
+        userData={userData}
+      />
 
-            {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 z-50">
-                <button 
-                  onClick={() => {
-                    setIsChangePasswordOpen(true);
-                    setIsProfileOpen(false);
-                  }} 
-                  className="w-full text-left px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
-                >
-                  <KeyRound className="w-4 h-4 mr-2 text-[#FFB902]" /> Change Password
-                </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 flex items-center transition-colors">
-                  <LogOut className="w-4 h-4 mr-2" /> Log Out
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
+      <main className="flex-grow w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
 
-      <main className="flex-grow w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 flex flex-col">
         
         {/* Simple Header */}
         <div className="mb-6">

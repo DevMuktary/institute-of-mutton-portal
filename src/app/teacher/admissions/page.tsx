@@ -34,6 +34,7 @@ import {
   Eye,
   SlidersHorizontal,
 } from "lucide-react";
+import TeacherNavbar from "@/components/TeacherNavbar";
 
 // --- Types ---
 interface ProgramRef {
@@ -390,55 +391,31 @@ export default function AdmissionsManagementPage() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
 
-      {/* Top Navbar */}
-      <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16 sm:h-20">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <Link
-              href="/teacher"
-              className="p-2 rounded-xl text-gray-500 hover:text-[#001232] hover:bg-gray-100 transition-colors flex items-center gap-1.5 font-medium text-sm"
-              title="Return to Control Panel"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="hidden sm:inline">Control Panel</span>
-            </Link>
-            <div className="h-6 w-px bg-gray-200 hidden sm:block"></div>
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#001232] flex items-center justify-center p-1.5 shadow-xs">
-                <Image src="/mutoon-logo.png" alt="Logo" width={22} height={22} className="object-contain" priority />
-              </div>
-              <div>
-                <h1 className="font-extrabold text-[#001232] text-base sm:text-lg leading-tight tracking-tight">
-                  Admissions & Applications
-                </h1>
-                <p className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider hidden sm:block">
-                  Student Registration Review Hub
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* Teacher Navigation Header with Hamburger */}
+      <TeacherNavbar
+        title="Admissions"
+        subtitle="Student registration review hub"
+        backHref="/teacher"
+      >
+        <button
+          onClick={() => fetchApplications(true)}
+          disabled={isRefreshing}
+          className="p-2 sm:p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-2xs shrink-0"
+          title="Refresh Data"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#001232]" : ""}`} />
+          <span className="hidden md:inline">Refresh</span>
+        </button>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => fetchApplications(true)}
-              disabled={isRefreshing}
-              className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-2xs"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#001232]" : ""}`} />
-              <span className="hidden md:inline">Refresh</span>
-            </button>
-
-            <button
-              onClick={() => handleExportCSV(false)}
-              className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] transition-colors flex items-center gap-2 text-xs sm:text-sm font-bold shadow-2xs"
-            >
-              <Download className="w-4 h-4 text-[#FFB902]" />
-              <span className="hidden sm:inline">Export CSV</span>
-            </button>
-          </div>
-        </div>
-      </header>
+        <button
+          onClick={() => handleExportCSV(false)}
+          className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] transition-colors flex items-center gap-1.5 text-xs font-bold shadow-2xs shrink-0"
+        >
+          <Download className="w-4 h-4 text-amber-500" />
+          <span className="hidden sm:inline">Export CSV</span>
+          <span className="sm:hidden">Export</span>
+        </button>
+      </TeacherNavbar>
 
       {/* Main Content Area */}
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6">

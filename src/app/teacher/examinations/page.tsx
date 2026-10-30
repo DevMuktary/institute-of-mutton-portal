@@ -8,6 +8,7 @@ import {
   GraduationCap, Plus, ArrowLeft, Calendar, Clock,
   Users, CheckCircle2, AlertCircle, Trash2, Edit3, Eye, Loader2, BookOpen
 } from "lucide-react";
+import TeacherNavbar from "@/components/TeacherNavbar";
 
 interface Program {
   id: string;
@@ -107,31 +108,23 @@ export default function TeacherExaminationsPage() {
         </div>
       )}
 
-      {/* Sticky Top Navbar */}
-      <nav className="w-full bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
-          <div className="flex items-center space-x-3">
-            <Link href="/teacher" className="p-2 -ml-2 text-gray-500 hover:text-[#001232] rounded-lg transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center space-x-2">
-              <Image src="/mutoon-logo.png" alt="Logo" width={24} height={24} className="object-contain" priority />
-              <span className="font-extrabold text-[#001232] text-lg">Examinations</span>
-            </div>
-          </div>
+      {/* Teacher Navigation Header with Hamburger */}
+      <TeacherNavbar
+        title="Examinations"
+        subtitle="Manage tests & quizzes"
+        backHref="/teacher"
+      >
+        <Link
+          href="/teacher/examinations/create"
+          className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Create Exam</span>
+        </Link>
+      </TeacherNavbar>
 
-          <Link
-            href="/teacher/examinations/create"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Exam</span>
-          </Link>
-        </div>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6">
+      {/* Main Content Area with generous mobile breathing space */}
+      <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         
         {/* Header Section */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
