@@ -11,14 +11,11 @@ import {
   LogOut,
   KeyRound,
   ChevronDown,
-  ArrowLeft,
   CalendarDays,
   GraduationCap,
   Users,
   LayoutGrid,
   ShieldCheck,
-  Bell,
-  Sparkles
 } from "lucide-react";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 
@@ -30,19 +27,21 @@ export interface TeacherUserData {
 }
 
 interface TeacherNavbarProps {
+  userData?: TeacherUserData | null;
+  // Deprecated/Ignored props kept for backwards compatibility so callers don't type-error
   title?: string;
   subtitle?: string;
   backHref?: string;
-  userData?: TeacherUserData | null;
   children?: React.ReactNode;
 }
 
+/**
+ * Global Application Header for Teacher / Faculty Portal.
+ * Purely represents the overall app/website (Branding, App Navigation, Profile & Hamburger Menu).
+ * Page-specific titles, back buttons, and action buttons live below this header in the page body.
+ */
 export default function TeacherNavbar({
-  title,
-  subtitle,
-  backHref,
   userData: initialUserData,
-  children,
 }: TeacherNavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,7 +53,7 @@ export default function TeacherNavbar({
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch user data if not passed
+  // Fetch user data if not passed from parent
   useEffect(() => {
     if (initialUserData) {
       setUserData(initialUserData);
@@ -195,33 +194,23 @@ export default function TeacherNavbar({
         onClose={() => setIsChangePasswordOpen(false)}
       />
 
-      {/* Main Sticky Header */}
+      {/* Global Application Sticky Header */}
       <header className="w-full bg-white/95 backdrop-blur-md border-b border-gray-200/80 sticky top-0 z-40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 gap-2 sm:gap-4">
+          <div className="flex items-center justify-between h-16 sm:h-20">
             
-            {/* Left Section: Back button + Brand / Title */}
-            <div className="flex items-center space-x-2.5 sm:space-x-3.5 min-w-0">
-              {backHref && (
-                <Link
-                  href={backHref}
-                  className="p-2 -ml-2 rounded-xl text-gray-500 hover:text-[#001232] hover:bg-gray-100 transition-colors shrink-0"
-                  title="Go Back"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </Link>
-              )}
-
+            {/* Left: Global Website / App Branding Alone */}
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <Link
                 href="/teacher"
-                className="flex items-center space-x-2.5 group shrink-0 focus:outline-none"
+                className="flex items-center space-x-2.5 sm:space-x-3 group focus:outline-none"
               >
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#001232] flex items-center justify-center p-1.5 shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <Image
                     src="/mutoon-logo.png"
                     alt="Mutoon Logo"
-                    width={26}
-                    height={26}
+                    width={28}
+                    height={28}
                     className="object-contain"
                     priority
                   />
@@ -230,21 +219,15 @@ export default function TeacherNavbar({
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-[#001232] text-base sm:text-lg leading-tight tracking-tight">
-                      {title || "Mutoon Faculty"}
+                      Institute of Mutoon
                     </span>
                     <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200/60 uppercase tracking-wider">
-                      Staff
+                      Faculty
                     </span>
                   </div>
-                  {subtitle ? (
-                    <span className="text-[11px] text-gray-400 font-medium truncate max-w-[160px] sm:max-w-xs">
-                      {subtitle}
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-gray-400 font-medium hidden sm:block">
-                      Institute of Mutoon Portal
-                    </span>
-                  )}
+                  <span className="text-[11px] text-gray-400 font-medium">
+                    Staff Portal
+                  </span>
                 </div>
               </Link>
 
@@ -282,16 +265,9 @@ export default function TeacherNavbar({
               </nav>
             </div>
 
-            {/* Right Section: Custom Actions + User Profile / Hamburger */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Right: User Profile (Desktop) & Hamburger Menu Button (Mobile) */}
+            <div className="flex items-center gap-2 sm:gap-3">
               
-              {/* Optional page-specific action buttons */}
-              {children && (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {children}
-                </div>
-              )}
-
               {/* Desktop Profile Dropdown */}
               <div className="relative hidden md:block" ref={profileDropdownRef}>
                 <button
@@ -303,7 +279,7 @@ export default function TeacherNavbar({
                     {userInitials}
                   </div>
                   <div className="text-left hidden lg:block">
-                    <p className="text-xs font-bold text-[#001232] leading-tight truncate max-w-[110px]">
+                    <p className="text-xs font-bold text-[#001232] leading-tight truncate max-w-[120px]">
                       {userData ? userData.fullName.split(" ")[0] : "Faculty"}
                     </p>
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -356,12 +332,12 @@ export default function TeacherNavbar({
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="relative p-2.5 sm:p-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] transition-colors focus:outline-none shadow-2xs active:scale-95"
+                className="relative p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] transition-colors focus:outline-none shadow-2xs active:scale-95"
                 aria-label="Open Navigation Menu"
               >
-                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
+                <Menu className="w-6 h-6" />
                 {pendingAdmissions > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-amber-500 border-2 border-white rounded-full"></span>
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-amber-500 border-2 border-white rounded-full"></span>
                 )}
               </button>
             </div>
@@ -399,7 +375,7 @@ export default function TeacherNavbar({
                     Institute of Mutoon
                   </h2>
                   <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">
-                    Teacher Portal
+                    Staff Portal
                   </p>
                 </div>
               </div>
@@ -420,11 +396,9 @@ export default function TeacherNavbar({
                   {userInitials}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-extrabold text-white truncate">
-                      {userData?.fullName || "Staff Member"}
-                    </p>
-                  </div>
+                  <p className="text-sm font-extrabold text-white truncate">
+                    {userData?.fullName || "Staff Member"}
+                  </p>
                   <p className="text-[11px] text-gray-300 truncate">
                     {userData?.email || "staff@mutoon.org"}
                   </p>

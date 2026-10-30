@@ -168,34 +168,42 @@ export default function TeacherExamMonitoringPage({
         </div>
       )}
 
-      {/* Teacher Navigation Header with Hamburger */}
-      <TeacherNavbar
-        title="Exam Monitor"
-        subtitle={exam?.title || "Live proctoring & results"}
-        backHref="/teacher/examinations"
-      >
-        <button
-          onClick={() => fetchMonitoringData(false)}
-          disabled={isRefreshing}
-          className="p-2 sm:p-2.5 text-gray-500 hover:text-[#001232] rounded-xl hover:bg-gray-100 transition-colors shrink-0"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
-        </button>
-
-        <button
-          onClick={handleSyncToMasterSheet}
-          disabled={isSyncing || submitted.length === 0}
-          className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 shrink-0"
-        >
-          {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          <span className="hidden sm:inline">Sync to Master Sheet</span>
-          <span className="sm:hidden">Sync</span>
-        </button>
-      </TeacherNavbar>
+      {/* Global App Header (Website & Portal Navigation Only) */}
+      <TeacherNavbar />
 
       {/* Main Content with comfortable mobile spacing */}
       <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        
+        {/* Page Back Link & Action Bar (Brought Down into Page Body) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <Link
+            href="/teacher/examinations"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#001232] transition-colors w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Examinations</span>
+          </Link>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => fetchMonitoringData(false)}
+              disabled={isRefreshing}
+              className="p-2 sm:p-2.5 text-gray-600 hover:text-[#001232] rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-colors shrink-0 shadow-2xs"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
+            </button>
+
+            <button
+              onClick={handleSyncToMasterSheet}
+              disabled={isSyncing || submitted.length === 0}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 shrink-0"
+            >
+              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Sync to Master Sheet</span>
+            </button>
+          </div>
+        </div>
         
         {/* Exam Title & Stats Banner */}
         {exam && (

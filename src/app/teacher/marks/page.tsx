@@ -426,14 +426,17 @@ export default function TeacherDailyMarks() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-[#1e293b] relative overflow-x-hidden">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Teacher Navigation Header with Hamburger */}
-      <TeacherNavbar
-        title="Marking Matrix"
-        subtitle={selectedProgram ? selectedProgram.titleEn : "Daily memorization register"}
-        backHref="/teacher"
-      />
+      {/* Global App Header (Website & Portal Navigation Only) */}
+      <TeacherNavbar />
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
+        <Link
+          href="/teacher"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#001232] transition-colors w-fit"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Control Panel</span>
+        </Link>
         {!selectedProgram ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {programs.map((program) => (

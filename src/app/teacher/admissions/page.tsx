@@ -391,34 +391,51 @@ export default function AdmissionsManagementPage() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
 
-      {/* Teacher Navigation Header with Hamburger */}
-      <TeacherNavbar
-        title="Admissions"
-        subtitle="Student registration review hub"
-        backHref="/teacher"
-      >
-        <button
-          onClick={() => fetchApplications(true)}
-          disabled={isRefreshing}
-          className="p-2 sm:p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-2xs shrink-0"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#001232]" : ""}`} />
-          <span className="hidden md:inline">Refresh</span>
-        </button>
-
-        <button
-          onClick={() => handleExportCSV(false)}
-          className="px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] transition-colors flex items-center gap-1.5 text-xs font-bold shadow-2xs shrink-0"
-        >
-          <Download className="w-4 h-4 text-amber-500" />
-          <span className="hidden sm:inline">Export CSV</span>
-          <span className="sm:hidden">Export</span>
-        </button>
-      </TeacherNavbar>
+      {/* Global App Header (Website & Portal Navigation Only) */}
+      <TeacherNavbar />
 
       {/* Main Content Area */}
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col gap-6">
+        
+        {/* Page Back Link & Action Bar (Brought Down into Page Body) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <Link
+              href="/teacher"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#001232] transition-colors w-fit mb-1"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Control Panel</span>
+            </Link>
+            <h1 className="text-2xl font-black text-[#001232] tracking-tight">
+              Admissions & Applications
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 font-medium">
+              Student registration review, approval & management hub
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3 self-start sm:self-auto">
+            <button
+              onClick={() => fetchApplications(true)}
+              disabled={isRefreshing}
+              className="p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-2xs shrink-0"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-[#001232]" : ""}`} />
+              <span className="hidden md:inline">Refresh</span>
+            </button>
+
+            <button
+              onClick={() => handleExportCSV(false)}
+              className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] transition-colors flex items-center gap-1.5 text-xs font-bold shadow-2xs shrink-0"
+            >
+              <Download className="w-4 h-4 text-amber-500" />
+              <span className="hidden sm:inline">Export CSV</span>
+              <span className="sm:inline">Export</span>
+            </button>
+          </div>
+        </div>
         {/* KPI Stats Grid */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5">
           {/* Total Applications */}

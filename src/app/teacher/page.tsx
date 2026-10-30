@@ -123,12 +123,8 @@ export default function TeacherPortalHub() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans">
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage("")} type={toastType} />}
 
-      {/* Teacher Unified Header with Hamburger Navigation */}
-      <TeacherNavbar
-        title="Control Panel"
-        subtitle="Manage portal operations"
-        userData={userData}
-      />
+      {/* Global App Header (Website & Portal Navigation Only) */}
+      <TeacherNavbar userData={userData} />
 
       <main className="flex-grow w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
 

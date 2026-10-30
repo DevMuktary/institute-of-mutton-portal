@@ -108,49 +108,57 @@ export default function TeacherExaminationsPage() {
         </div>
       )}
 
-      {/* Teacher Navigation Header with Hamburger */}
-      <TeacherNavbar
-        title="Examinations"
-        subtitle="Manage tests & quizzes"
-        backHref="/teacher"
-      >
-        <Link
-          href="/teacher/examinations/create"
-          className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create Exam</span>
-        </Link>
-      </TeacherNavbar>
+      {/* Global App Header (Website & Portal Navigation Only) */}
+      <TeacherNavbar />
 
       {/* Main Content Area with generous mobile breathing space */}
-      <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-grow w-full max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6">
         
+        {/* Back Link to Control Panel */}
+        <Link
+          href="/teacher"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#001232] transition-colors w-fit"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Control Panel</span>
+        </Link>
+
         {/* Header Section */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-[#001232]">Manage Assessments</h1>
+            <h1 className="text-2xl font-black text-[#001232] tracking-tight">Manage Examinations</h1>
             <p className="text-sm text-gray-500 font-medium mt-0.5">
               Create, configure, and monitor objective examinations
             </p>
           </div>
 
-          {/* Program Filter */}
-          {programs.length > 0 && (
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-gray-400 shrink-0" />
-              <select
-                value={selectedProgramId}
-                onChange={e => setSelectedProgramId(e.target.value)}
-                className="w-full sm:w-auto text-sm font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-[#001232] focus:outline-none focus:border-[#001232]"
-              >
-                <option value="all">All Programs ({exams.length})</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.titleEn}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* Program Filter */}
+            {programs.length > 0 && (
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-gray-400 shrink-0" />
+                <select
+                  value={selectedProgramId}
+                  onChange={e => setSelectedProgramId(e.target.value)}
+                  className="text-xs sm:text-sm font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-[#001232] focus:outline-none focus:border-[#001232]"
+                >
+                  <option value="all">All Programs ({exams.length})</option>
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>{p.titleEn}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Create Exam Button */}
+            <Link
+              href="/teacher/examinations/create"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-black rounded-xl shadow-xs transition-all shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Create Exam</span>
+            </Link>
+          </div>
         </div>
 
         {/* Loading State */}
