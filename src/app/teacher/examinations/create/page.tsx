@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowLeft, Plus, Trash2, CheckCircle2, AlertCircle,
-  Save, Loader2, Clock, Calendar, Check, HelpCircle
+  Save, Loader2, Clock, Calendar, Check, ArrowRight,
+  HelpCircle, ChevronRight, ChevronLeft, Bookmark, Send
 } from "lucide-react";
 
 interface Program {
@@ -27,10 +28,19 @@ interface QuestionInput {
   marks: number;
 }
 
-export default function CreateExaminationPage() {
+function CreateExamWizard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const existingExamId = searchParams.get("examId");
 
+  // Step state: 1 = General Info, 2 = Timing & Schedule, 3 = Questions
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
+  // Programs
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [examId, setExamId] = useState<string | null>(existingExamId);
+
+  // Step 1: General Info
   const [selectedProgramId, setSelectedProgramId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,12 +48,10 @@ export default function CreateExaminationPage() {
     "1. Ensure you have a stable internet connection.\n2. Do NOT minimize this window or switch browser tabs.\n3. Your countdown timer cannot be paused once started."
   );
 
-  // Time & Duration
-  // Default start: today at 08:00 AM, end: today at 08:00 PM
+  // Step 2: Time & Scoring
   const getTodayTimeString = (hours: number, minutes: number = 0) => {
     const d = new Date();
     d.setHours(hours, minutes, 0, 0);
-    // Format to YYYY-MM-DDTHH:mm for datetime-local
     const pad = (n: number) => n.toString().padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
@@ -54,7 +62,7 @@ export default function CreateExaminationPage() {
   const [markPerQuestion, setMarkPerQuestion] = useState(2);
   const [totalMarks, setTotalMarks] = useState(60);
 
-  // Questions array
+  // Step 3: Questions
   const [questions, setQuestions] = useState<QuestionInput[]>([
     {
       order: 1,
@@ -68,9 +76,12 @@ export default function CreateExaminationPage() {
     }
   ]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(!!existingExamId);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" | "info" } | null>(null);
 
+  // Load programs
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
@@ -78,7 +89,7 @@ export default function CreateExaminationPage() {
         if (res.ok) {
           const json = await res.json();
           setPrograms(json.data || []);
-          if (json.data?.length > 0) {
+          if (json.data?.length > 0 && !selectedProgramId) {
             setSelectedProgramId(json.data[0].id);
           }
         }
@@ -87,13 +98,91 @@ export default function CreateExaminationPage() {
       }
     };
     fetchPrograms();
-  }, []);
+  }, [selectedProgramId]);
+
+  // Load existing exam if editing a draft
+  useEffect(() => {
+    if (!existingExamId) return;
+
+    const loadDraft = async () => {
+      try {
+        const res = await fetch(`/api/teacher/exams/${existingExamId}`);
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        if (json.success && json.data) {
+          const e = json.data;
+          setExamId(e.id);
+          setSelectedProgramId(e.programId);
+          setTitle(e.title || "");
+          setDescription(e.description || "");
+          setInstructions(e.instructions || "");
+          if (e.startsAt) {
+            const d = new Date(e.startsAt);
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            setStartsAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+          }
+          if (e.endsAt) {
+            const d = new Date(e.endsAt);
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            setEndsAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+          }
+          setDurationMinutes(e.durationMinutes || 45);
+          setMarkPerQuestion(e.markPerQuestion || 2);
+          setTotalMarks(e.totalMarks || 60);
+          if (e.questions && e.questions.length > 0) {
+            setQuestions(e.questions.map((q: any) => ({
+              order: q.order,
+              questionText: q.questionText || "",
+              optionA: q.optionA || "",
+              optionB: q.optionB || "",
+              optionC: q.optionC || "",
+              optionD: q.optionD || "",
+              correctOption: q.correctOption || "A",
+              marks: q.marks || 2
+            })));
+          }
+        }
+      } catch (err) {
+        setToast({ msg: "Failed to load draft examination.", type: "error" });
+      } finally {
+        setIsLoadingExisting(false);
+      }
+    };
+
+    loadDraft();
+  }, [existingExamId]);
 
   // Update total marks whenever markPerQuestion or questions count changes
   useEffect(() => {
     setTotalMarks(questions.length * markPerQuestion);
   }, [questions.length, markPerQuestion]);
 
+  // Step 1 Validation
+  const handleNextStep1 = () => {
+    if (!selectedProgramId) {
+      return setToast({ msg: "Please select a program.", type: "error" });
+    }
+    if (!title.trim()) {
+      return setToast({ msg: "Please enter an examination title.", type: "error" });
+    }
+    setCurrentStep(2);
+  };
+
+  // Step 2 Validation
+  const handleNextStep2 = () => {
+    if (!startsAt || !endsAt) {
+      return setToast({ msg: "Please specify start and end dates.", type: "error" });
+    }
+    if (new Date(endsAt) <= new Date(startsAt)) {
+      return setToast({ msg: "Availability close time must be after start time.", type: "error" });
+    }
+    if (durationMinutes < 5) {
+      return setToast({ msg: "Exam duration must be at least 5 minutes.", type: "error" });
+    }
+    setCurrentStep(3);
+  };
+
+  // Question editing helpers
   const handleAddQuestion = () => {
     setQuestions(prev => [
       ...prev,
@@ -129,20 +218,77 @@ export default function CreateExaminationPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Save as Draft (Auto-saves so battery death or refresh loses nothing!)
+  const handleSaveDraft = async () => {
+    if (!selectedProgramId || !title.trim()) {
+      setToast({ msg: "Please enter at least a program and title to save a draft.", type: "error" });
+      return;
+    }
 
+    setIsSavingDraft(true);
+    try {
+      const payload = {
+        programId: selectedProgramId,
+        title: title.trim(),
+        description: description.trim(),
+        instructions: instructions.trim(),
+        startsAt,
+        endsAt,
+        durationMinutes: Number(durationMinutes) || 45,
+        markPerQuestion: Number(markPerQuestion) || 2,
+        totalMarks: Number(totalMarks) || 60,
+        status: "DRAFT",
+        questions
+      };
+
+      let res;
+      if (examId) {
+        // Update existing draft
+        res = await fetch(`/api/teacher/exams/${examId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        // Create new draft
+        res = await fetch("/api/teacher/exams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "Failed to save draft.");
+
+      if (!examId && json.data?.id) {
+        setExamId(json.data.id);
+      }
+
+      setToast({ msg: "Draft saved successfully! You can resume editing anytime.", type: "success" });
+    } catch (err: any) {
+      setToast({ msg: err.message || "Failed to save draft.", type: "error" });
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Publish Exam (Final validation)
+  const handlePublishExam = async () => {
     if (!selectedProgramId) {
-      return setToast({ msg: "Please select a program.", type: "error" });
+      setCurrentStep(1);
+      return setToast({ msg: "Please select a program in Step 1.", type: "error" });
     }
     if (!title.trim()) {
-      return setToast({ msg: "Please enter an examination title.", type: "error" });
+      setCurrentStep(1);
+      return setToast({ msg: "Please enter an examination title in Step 1.", type: "error" });
     }
     if (new Date(endsAt) <= new Date(startsAt)) {
-      return setToast({ msg: "End time must be after the start time.", type: "error" });
+      setCurrentStep(2);
+      return setToast({ msg: "Close time must be after start time in Step 2.", type: "error" });
     }
 
-    // Validate that questions have stems and options
+    // Validate all questions
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.questionText.trim()) {
@@ -153,48 +299,73 @@ export default function CreateExaminationPage() {
       }
     }
 
-    setIsSubmitting(true);
+    setIsPublishing(true);
     try {
-      const res = await fetch("/api/teacher/exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          programId: selectedProgramId,
-          title: title.trim(),
-          description: description.trim(),
-          instructions: instructions.trim(),
-          startsAt,
-          endsAt,
-          durationMinutes: Number(durationMinutes),
-          markPerQuestion: Number(markPerQuestion),
-          totalMarks: Number(totalMarks),
-          questions
-        })
-      });
+      const payload = {
+        programId: selectedProgramId,
+        title: title.trim(),
+        description: description.trim(),
+        instructions: instructions.trim(),
+        startsAt,
+        endsAt,
+        durationMinutes: Number(durationMinutes),
+        markPerQuestion: Number(markPerQuestion),
+        totalMarks: Number(totalMarks),
+        status: "PUBLISHED",
+        questions
+      };
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to create examination.");
+      let res;
+      if (examId) {
+        res = await fetch(`/api/teacher/exams/${examId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch("/api/teacher/exams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
       }
 
-      setToast({ msg: "Examination created and published successfully!", type: "success" });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "Failed to publish examination.");
+
+      setToast({ msg: "Examination published live successfully!", type: "success" });
       setTimeout(() => {
         router.push("/teacher/examinations");
-      }, 1000);
+      }, 1200);
     } catch (err: any) {
-      setToast({ msg: err.message || "Failed to save examination.", type: "error" });
+      setToast({ msg: err.message || "Failed to publish examination.", type: "error" });
     } finally {
-      setIsSubmitting(false);
+      setIsPublishing(false);
     }
   };
 
+  if (isLoadingExisting) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4">
+        <div className="w-9 h-9 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin"></div>
+        <p className="text-xs font-bold text-gray-500 mt-3">Loading draft examination...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans pb-16">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans pb-20 overflow-x-hidden w-full max-w-full">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-20 right-4 sm:right-8 z-[9999] animate-slide-in max-w-[90vw]">
-          <div className={`bg-white border-l-4 shadow-xl rounded-r-xl p-3 flex items-center gap-3 w-80 max-w-full ${toast.type === "success" ? "border-green-500 text-green-800" : "border-red-500 text-red-800"}`}>
-            {toast.type === "success" ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" /> : <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />}
+          <div className={`bg-white border-l-4 shadow-xl rounded-r-xl p-3 flex items-center gap-3 w-80 max-w-full ${
+            toast.type === "success" ? "border-green-500 text-green-800" :
+            toast.type === "info" ? "border-blue-500 text-blue-800" :
+            "border-red-500 text-red-800"
+          }`}>
+            {toast.type === "success" && <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />}
+            {toast.type === "info" && <Bookmark className="w-5 h-5 text-blue-500 shrink-0" />}
+            {toast.type === "error" && <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />}
             <p className="text-sm font-semibold">{toast.msg}</p>
           </div>
         </div>
@@ -202,43 +373,93 @@ export default function CreateExaminationPage() {
 
       {/* Sticky Top Navbar */}
       <nav className="w-full bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
-          <div className="flex items-center space-x-3">
-            <Link href="/teacher/examinations" className="p-2 -ml-2 text-gray-500 hover:text-[#001232] rounded-lg transition-colors">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 flex justify-between items-center h-14 sm:h-16">
+          <div className="flex items-center space-x-2">
+            <Link href="/teacher/examinations" className="p-1.5 -ml-1.5 text-gray-500 hover:text-[#001232] rounded-lg">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div className="flex items-center space-x-2">
-              <Image src="/mutoon-logo.png" alt="Logo" width={24} height={24} className="object-contain" priority />
-              <span className="font-extrabold text-[#001232] text-lg">Create Exam</span>
+            <div className="flex items-center space-x-1.5">
+              <Image src="/mutoon-logo.png" alt="Logo" width={22} height={22} className="object-contain" priority />
+              <span className="font-extrabold text-[#001232] text-sm sm:text-base">
+                {examId ? "Edit Draft Exam" : "Create Exam"}
+              </span>
             </div>
           </div>
 
+          {/* Quick Draft Save Action */}
           <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all disabled:opacity-50"
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={isSavingDraft}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#001232] text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+            title="Save draft progress"
           >
-            {isSubmitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            <span>Save & Publish</span>
+            {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5 text-[#FFB902]" />}
+            <span>Save Draft</span>
+          </button>
+        </div>
+
+        {/* 3-Step Wizard Navigation Bar (Mobile-Optimized) */}
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between text-xs font-bold border-t border-gray-100 bg-[#fafafa]">
+          <button
+            onClick={() => setCurrentStep(1)}
+            className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg transition-colors ${
+              currentStep === 1
+                ? "bg-[#001232] text-white"
+                : "text-gray-500 hover:text-[#001232]"
+            }`}
+          >
+            <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">1</span>
+            <span>General</span>
+          </button>
+
+          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+
+          <button
+            onClick={() => handleNextStep1()}
+            className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg transition-colors ${
+              currentStep === 2
+                ? "bg-[#001232] text-white"
+                : "text-gray-500 hover:text-[#001232]"
+            }`}
+          >
+            <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">2</span>
+            <span>Timing</span>
+          </button>
+
+          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+
+          <button
+            onClick={() => {
+              if (currentStep === 1) handleNextStep1();
+              else handleNextStep2();
+            }}
+            className={`flex items-center gap-1.5 py-1 px-2.5 rounded-lg transition-colors ${
+              currentStep === 3
+                ? "bg-[#001232] text-white"
+                : "text-gray-500 hover:text-[#001232]"
+            }`}
+          >
+            <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">3</span>
+            <span>Questions ({questions.length})</span>
           </button>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="flex-grow w-full max-w-3xl mx-auto px-4 sm:px-6 py-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Main Content Area */}
+      <main className="flex-grow w-full max-w-2xl mx-auto px-4 sm:px-6 py-5 box-border">
+        
+        {/* ==============================================
+            PAGE 1: GENERAL INFORMATION
+           ============================================== */}
+        {currentStep === 1 && (
+          <div className="bg-white border border-gray-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 animate-fade-in">
+            <div className="border-b border-gray-100 pb-3">
+              <h2 className="text-lg font-black text-[#001232]">Step 1: General Details</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Select the course and set examination title</p>
+            </div>
 
-          {/* Card 1: Program & General Details */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-[#001232] border-b border-gray-100 pb-2">
-              1. General Information
-            </h2>
-
-            {/* Program Selection */}
+            {/* Course / Program */}
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                 Target Program / Course *
@@ -278,7 +499,7 @@ export default function CreateExaminationPage() {
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="Brief summary of exam scope or topics covered..."
+                placeholder="Brief summary of exam scope..."
                 rows={2}
                 className="w-full text-sm font-medium bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
               />
@@ -287,7 +508,7 @@ export default function CreateExaminationPage() {
             {/* Instructions */}
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Candidate Instructions (Displayed before exam start)
+                Candidate Instructions (Displayed before student begins)
               </label>
               <textarea
                 value={instructions}
@@ -296,257 +517,348 @@ export default function CreateExaminationPage() {
                 className="w-full text-sm font-medium bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
               />
             </div>
+
+            {/* Bottom Actions for Step 1 */}
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft}
+                className="text-xs font-bold text-gray-500 hover:text-[#001232] flex items-center gap-1"
+              >
+                <Bookmark className="w-3.5 h-3.5 text-[#FFB902]" />
+                <span>Save Draft</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextStep1}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-black text-xs sm:text-sm rounded-xl shadow-md transition-all"
+              >
+                <span>Next: Timing & Schedule</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+        )}
 
-          {/* Card 2: Schedule & Time Window */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-[#001232] border-b border-gray-100 pb-2">
-              2. Scheduling & Timing
-            </h2>
+        {/* ==============================================
+            PAGE 2: SCHEDULING & TIMING
+           ============================================== */}
+        {currentStep === 2 && (
+          <div className="bg-white border border-gray-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 animate-fade-in">
+            <div className="border-b border-gray-100 pb-3">
+              <h2 className="text-lg font-black text-[#001232]">Step 2: Scheduling & Timing</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Configure access window, timer, and score ceiling</p>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Availability Starts At *
                 </label>
-                <div className="relative">
-                  <input
-                    type="datetime-local"
-                    value={startsAt}
-                    onChange={e => setStartsAt(e.target.value)}
-                    required
-                    className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
-                  />
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1">When students can first access the exam.</p>
+                <input
+                  type="datetime-local"
+                  value={startsAt}
+                  onChange={e => setStartsAt(e.target.value)}
+                  required
+                  className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">When candidates can first open the exam (e.g. 08:00 AM).</p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                   Availability Closes At *
                 </label>
-                <div className="relative">
-                  <input
-                    type="datetime-local"
-                    value={endsAt}
-                    onChange={e => setEndsAt(e.target.value)}
-                    required
-                    className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
-                  />
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1">After this time, the exam is locked.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Duration (Minutes) *
-                </label>
                 <input
-                  type="number"
-                  min="5"
-                  max="180"
-                  value={durationMinutes}
-                  onChange={e => setDurationMinutes(Number(e.target.value))}
+                  type="datetime-local"
+                  value={endsAt}
+                  onChange={e => setEndsAt(e.target.value)}
                   required
                   className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
                 />
-                <p className="text-[11px] text-gray-400 mt-1">Student timer once started.</p>
+                <p className="text-[11px] text-gray-400 mt-1">When exam closes for all candidates (e.g. 08:00 PM).</p>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Marks Per Question
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={markPerQuestion}
-                  onChange={e => {
-                    const m = Number(e.target.value);
-                    setMarkPerQuestion(m);
-                    setQuestions(prev => prev.map(q => ({ ...q, marks: m })));
-                  }}
-                  className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">Default mark per MCQ.</p>
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Duration (Mins) *
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="180"
+                    value={durationMinutes}
+                    onChange={e => setDurationMinutes(Number(e.target.value))}
+                    required
+                    className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Student timer countdown.</p>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Total Marks Ceiling
-                </label>
-                <input
-                  type="number"
-                  value={totalMarks}
-                  onChange={e => setTotalMarks(Number(e.target.value))}
-                  className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
-                />
-                <p className="text-[11px] text-gray-400 mt-1">e.g. 60 marks total.</p>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Marks / Question
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={markPerQuestion}
+                    onChange={e => {
+                      const m = Number(e.target.value);
+                      setMarkPerQuestion(m);
+                      setQuestions(prev => prev.map(q => ({ ...q, marks: m })));
+                    }}
+                    className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Default points per MCQ.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Target Total
+                  </label>
+                  <input
+                    type="number"
+                    value={totalMarks}
+                    onChange={e => setTotalMarks(Number(e.target.value))}
+                    className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">e.g. 60 marks total.</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Card 3: Objective Questions Builder */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Bottom Actions for Step 2 */}
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setCurrentStep(1)}
+                className="inline-flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-[#001232]"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Back to General</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextStep2}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-black text-xs sm:text-sm rounded-xl shadow-md transition-all"
+              >
+                <span>Next: Questions ({questions.length})</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ==============================================
+            PAGE 3: QUESTIONS & ANSWERS EDITOR (DEDICATED)
+           ============================================== */}
+        {currentStep === 3 && (
+          <div className="space-y-4 animate-fade-in w-full max-w-full box-border">
+            {/* Header with Add & Draft Buttons */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-2 flex-wrap">
               <div>
-                <h2 className="text-lg font-bold text-[#001232]">
-                  3. Objective Questions ({questions.length})
+                <h2 className="text-base sm:text-lg font-black text-[#001232]">
+                  Step 3: Questions & Answers ({questions.length})
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Supports clear Arabic Mutoon fonts & diacritics. Tap option pill to select correct answer.
+                  Tap option pill to set correct answer. Save as draft anytime.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleAddQuestion}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-xl transition-colors shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Question</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isSavingDraft}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-[#001232] text-xs font-bold rounded-xl transition-colors"
+                >
+                  {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5 text-[#FFB902]" />}
+                  <span>Save Draft</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAddQuestion}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#001232] text-[#FFB902] hover:bg-[#002255] text-xs font-bold rounded-xl transition-colors shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Question</span>
+                </button>
+              </div>
             </div>
 
-            {/* Questions List */}
-            {questions.map((q, qIndex) => (
-              <div
-                key={qIndex}
-                className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 relative group"
-              >
-                {/* Question Header */}
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#001232] text-[#FFB902] font-bold text-xs flex items-center justify-center">
-                      {q.order}
-                    </span>
-                    <span className="text-sm font-bold text-[#001232]">Question {q.order}</span>
-                    <span className="text-xs text-gray-400 font-medium">({q.marks} mark{q.marks > 1 ? "s" : ""})</span>
+            {/* Questions List (Mobile-Optimized Layout Without Horizontal Swapping) */}
+            <div className="space-y-4 w-full max-w-full box-border">
+              {questions.map((q, qIndex) => (
+                <div
+                  key={qIndex}
+                  className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 w-full max-w-full box-border overflow-hidden"
+                >
+                  {/* Question Header */}
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-[#001232] text-[#FFB902] font-black text-xs flex items-center justify-center shrink-0">
+                        {q.order}
+                      </span>
+                      <span className="text-sm font-bold text-[#001232]">Question {q.order}</span>
+                      <span className="text-xs text-gray-400 font-medium">({q.marks} mark{q.marks > 1 ? "s" : ""})</span>
+                    </div>
+
+                    {questions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQuestion(qIndex)}
+                        className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors shrink-0"
+                        title="Remove Question"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
-                  {questions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveQuestion(qIndex)}
-                      className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors"
-                      title="Remove Question"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Question Text with Arabic Font */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">
-                    Question Stem (English or Arabic with Tashkeel) *
-                  </label>
-                  <textarea
-                    dir="auto"
-                    value={q.questionText}
-                    onChange={e => handleQuestionChange(qIndex, "questionText", e.target.value)}
-                    placeholder="Enter question here... / اَكْتُبِ السُّؤَالَ هُنَا"
-                    rows={2}
-                    required
-                    className="w-full text-base font-amiri font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232] leading-relaxed"
-                  />
-                </div>
-
-                {/* Options A, B, C, D */}
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-600">Answer Options</span>
-                    <span className="text-[11px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full">
-                      Tap letter to set correct answer: [{q.correctOption}]
-                    </span>
+                  {/* Question Text with Arabic Font & Zero Overflow */}
+                  <div className="w-full max-w-full box-border">
+                    <label className="block text-xs font-bold text-gray-600 mb-1">
+                      Question Stem (English / Arabic with Tashkeel) *
+                    </label>
+                    <textarea
+                      dir="auto"
+                      value={q.questionText}
+                      onChange={e => handleQuestionChange(qIndex, "questionText", e.target.value)}
+                      placeholder="Enter question text here... / اَكْتُبِ السُّؤَالَ هُنَا"
+                      rows={2}
+                      required
+                      className="w-full max-w-full box-border text-base font-amiri font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl p-3 text-[#001232] focus:outline-none focus:border-[#001232] leading-relaxed resize-y"
+                    />
                   </div>
 
-                  {(["A", "B", "C", "D"] as const).map(optKey => {
-                    const fieldKey = `option${optKey}` as "optionA" | "optionB" | "optionC" | "optionD";
-                    const isCorrect = q.correctOption === optKey;
+                  {/* Options A, B, C, D (Flex with min-w-0 to prevent mobile overflow) */}
+                  <div className="space-y-2 pt-1 w-full max-w-full box-border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-600">Options</span>
+                      <span className="text-[11px] text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded-full">
+                        Correct: Option [{q.correctOption}]
+                      </span>
+                    </div>
 
-                    return (
-                      <div key={optKey} className="flex items-center gap-2">
-                        {/* Option Select Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleQuestionChange(qIndex, "correctOption", optKey)}
-                          className={`w-9 h-9 rounded-xl font-extrabold text-sm flex items-center justify-center shrink-0 transition-all ${
-                            isCorrect
-                              ? "bg-green-600 text-white ring-2 ring-green-600 shadow-sm"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
-                          title={`Mark Option ${optKey} as Correct`}
-                        >
-                          {isCorrect ? <Check className="w-4 h-4 stroke-[3]" /> : optKey}
-                        </button>
+                    {(["A", "B", "C", "D"] as const).map(optKey => {
+                      const fieldKey = `option${optKey}` as "optionA" | "optionB" | "optionC" | "optionD";
+                      const isCorrect = q.correctOption === optKey;
 
-                        {/* Option Text Input */}
-                        <input
-                          dir="auto"
-                          type="text"
-                          value={q[fieldKey]}
-                          onChange={e => handleQuestionChange(qIndex, fieldKey, e.target.value)}
-                          placeholder={`Option ${optKey}...`}
-                          required
-                          className={`flex-grow text-sm font-amiri font-medium bg-[#f8fafc] border rounded-xl px-3.5 py-2 text-[#001232] focus:outline-none transition-colors ${
-                            isCorrect
-                              ? "border-green-400 bg-green-50/30"
-                              : "border-gray-200 focus:border-[#001232]"
-                          }`}
-                        />
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div key={optKey} className="flex items-center gap-2 w-full max-w-full min-w-0 box-border">
+                          {/* Option Toggle Pill */}
+                          <button
+                            type="button"
+                            onClick={() => handleQuestionChange(qIndex, "correctOption", optKey)}
+                            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center shrink-0 transition-all ${
+                              isCorrect
+                                ? "bg-green-600 text-white ring-2 ring-green-600 shadow-xs"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                            title={`Mark Option ${optKey} as Correct`}
+                          >
+                            {isCorrect ? <Check className="w-4 h-4 stroke-[3]" /> : optKey}
+                          </button>
+
+                          {/* Option Text Input */}
+                          <input
+                            dir="auto"
+                            type="text"
+                            value={q[fieldKey]}
+                            onChange={e => handleQuestionChange(qIndex, fieldKey, e.target.value)}
+                            placeholder={`Option ${optKey}...`}
+                            required
+                            className={`flex-1 min-w-0 w-full box-border text-sm font-amiri font-medium bg-[#f8fafc] border rounded-xl px-3 py-2 text-[#001232] focus:outline-none transition-colors ${
+                              isCorrect
+                                ? "border-green-400 bg-green-50/20"
+                                : "border-gray-200 focus:border-[#001232]"
+                            }`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
 
-            {/* Bottom Add Question Button */}
-            <div className="pt-2">
+            {/* Bottom Add Next Question */}
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={handleAddQuestion}
-                className="w-full py-3 border-2 border-dashed border-gray-300 hover:border-[#001232] rounded-2xl text-gray-600 hover:text-[#001232] font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-white/50"
+                className="w-full py-3.5 border-2 border-dashed border-gray-300 hover:border-[#001232] rounded-2xl text-gray-600 hover:text-[#001232] font-black text-sm flex items-center justify-center gap-2 transition-colors bg-white"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Next Question ({questions.length + 1})</span>
+                <span>Add Question ({questions.length + 1})</span>
               </button>
             </div>
-          </div>
 
-          {/* Bottom Action Bar */}
-          <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
-            <Link
-              href="/teacher/examinations"
-              className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </Link>
+            {/* Final Action Bar for Step 3 */}
+            <div className="pt-4 border-t border-gray-200 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setCurrentStep(2)}
+                className="inline-flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-[#001232]"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Back to Timing</span>
+              </button>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-bold text-sm rounded-xl shadow-md transition-all disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Publishing Exam...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Publish Examination</span>
-                </>
-              )}
-            </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isSavingDraft}
+                  className="px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-bold text-xs sm:text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Draft"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePublishExam}
+                  disabled={isPublishing}
+                  className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-black text-xs sm:text-sm rounded-xl shadow-md transition-all disabled:opacity-50"
+                >
+                  {isPublishing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Publishing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>Publish Live</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-        </form>
+        )}
+
       </main>
     </div>
+  );
+}
+
+export default function CreateExaminationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4">
+        <div className="w-9 h-9 border-4 border-gray-200 border-t-[#001232] rounded-full animate-spin"></div>
+        <p className="text-xs font-bold text-gray-500 mt-3">Loading exam builder...</p>
+      </div>
+    }>
+      <CreateExamWizard />
+    </Suspense>
   );
 }

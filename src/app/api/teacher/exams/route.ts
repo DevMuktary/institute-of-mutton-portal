@@ -56,25 +56,19 @@ export async function POST(request: NextRequest) {
       durationMinutes,
       markPerQuestion = 2,
       totalMarks = 60,
+      status = "DRAFT",
       questions = []
     } = body;
 
-    if (!programId || !title || !startsAt || !endsAt || !durationMinutes) {
+    if (!programId || !title) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields (Program, Title, StartsAt, EndsAt, Duration)." },
+        { success: false, error: "Program and Examination Title are required." },
         { status: 400 }
       );
     }
 
-    const start = new Date(startsAt);
-    const end = new Date(endsAt);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
-      return NextResponse.json(
-        { success: false, error: "Invalid date range: End time must be after start time." },
-        { status: 400 }
-      );
-    }
+    const start = startsAt ? new Date(startsAt) : new Date();
+    const end = endsAt ? new Date(endsAt) : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // Verify program exists
     const program = await prisma.program.findUnique({ where: { id: programId } });
@@ -82,7 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Program not found." }, { status: 404 });
     }
 
-    // Calculate marks per question or total
+    // Process questions
     const computedQuestions = questions.map((q: any, index: number) => ({
       order: index + 1,
       questionText: q.questionText?.trim() || "",
@@ -95,6 +89,7 @@ export async function POST(request: NextRequest) {
     }));
 
     const finalTotalMarks = Number(totalMarks) || (computedQuestions.length * Number(markPerQuestion)) || 60;
+    const finalStatus = ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(status) ? status : "DRAFT";
 
     const exam = await prisma.exam.create({
       data: {
@@ -104,10 +99,10 @@ export async function POST(request: NextRequest) {
         instructions: instructions?.trim() || null,
         startsAt: start,
         endsAt: end,
-        durationMinutes: parseInt(durationMinutes, 10),
+        durationMinutes: parseInt(durationMinutes || 45, 10),
         markPerQuestion: Number(markPerQuestion) || 2,
         totalMarks: finalTotalMarks,
-        status: "PUBLISHED",
+        status: finalStatus,
         questions: {
           create: computedQuestions
         }

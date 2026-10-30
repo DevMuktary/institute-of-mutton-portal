@@ -208,7 +208,11 @@ export default function TeacherExaminationsPage() {
                     </span>
 
                     <div className="flex items-center gap-1.5">
-                      {isOpen ? (
+                      {exam.status === "DRAFT" ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                          Draft (Unpublished)
+                        </span>
+                      ) : isOpen ? (
                         <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-green-50 text-green-700 border border-green-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></span>
                           Live Now
@@ -218,8 +222,8 @@ export default function TeacherExaminationsPage() {
                           Closed
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          Scheduled
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          Published
                         </span>
                       )}
                     </div>
@@ -267,13 +271,33 @@ export default function TeacherExaminationsPage() {
 
                   {/* Action Bar */}
                   <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-1">
-                    <Link
-                      href={`/teacher/examinations/${exam.id}`}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#001232] hover:bg-[#002255] text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm"
-                    >
-                      <Eye className="w-4 h-4 text-[#FFB902]" />
-                      <span>Monitor & Grade</span>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      {exam.status === "DRAFT" ? (
+                        <Link
+                          href={`/teacher/examinations/create?examId=${exam.id}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                          <span>Resume / Edit Draft</span>
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/teacher/examinations/${exam.id}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#001232] hover:bg-[#002255] text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm"
+                        >
+                          <Eye className="w-4 h-4 text-[#FFB902]" />
+                          <span>Monitor & Grade</span>
+                        </Link>
+                      )}
+
+                      <Link
+                        href={`/teacher/examinations/create?examId=${exam.id}`}
+                        className="p-2 text-gray-400 hover:text-gray-700 rounded-lg transition-colors"
+                        title="Edit Exam / Questions"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </Link>
+                    </div>
 
                     <button
                       onClick={() => handleDelete(exam.id, exam.title)}
