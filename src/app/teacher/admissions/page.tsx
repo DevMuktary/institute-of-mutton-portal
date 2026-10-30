@@ -360,16 +360,18 @@ export default function AdmissionsManagementPage() {
       `"${new Date(item.createdAt).toLocaleDateString()}"`,
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((e) => e.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     const dateStr = new Date().toISOString().split("T")[0];
     const programNameSlug = selectedProgramId === "ALL" ? "All_Programs" : "Filtered_Program";
     link.setAttribute("download", `Mutoon_Admissions_${programNameSlug}_${dateStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
     showToast(`Exported ${listToExport.length} applicant records to CSV.`, "success");
   };

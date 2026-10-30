@@ -6,7 +6,7 @@ import Link from "next/link";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { 
-  BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText, Loader2, Save
+  BookOpen, ArrowLeft, X, CheckCircle2, AlertCircle, Info, FileText, Loader2, Save, Download
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
 
@@ -333,6 +333,14 @@ export default function TeacherDailyMarks() {
       pdf.setLineWidth(0.4);
       pdf.line(14, headerStartY + 16, pageWidth - 14, headerStartY + 16);
 
+      const sanitizeForPdf = (name: string) => {
+        if (!name) return "Unknown";
+        // Strip Arabic script characters for Helvetica to prevent unrenderable junk mojibake glyphs
+        const latin = name.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g, "").trim();
+        const cleaned = latin.replace(/\(\s*\)/g, "").replace(/\s+/g, " ").trim();
+        return cleaned.length > 0 ? cleaned : name;
+      };
+
       // AutoTable Data
       autoTable(pdf, {
         startY: headerStartY + 20,
@@ -340,7 +348,7 @@ export default function TeacherDailyMarks() {
         head: [["Rank", "Full Name", "Daily Score", "Examination", "Grand Total", "Grade"]],
         body: results.map((row: any, index: number) => [
           (index + 1).toString(),
-          row.fullName,
+          sanitizeForPdf(row.fullName),
           (row.dailyScore ?? 0).toString(),
           row.examScore?.toString() || "--",
           (row.grandTotal ?? 0).toString(),
@@ -407,6 +415,46 @@ export default function TeacherDailyMarks() {
     }
   };
 
+  const handleDownloadCSV = async () => {
+    if (!selectedProgram) return;
+    setToast({ msg: "Preparing results spreadsheet...", type: "info" });
+    try {
+      const res = await fetch(`/api/teacher/results?programId=${selectedProgram.id}`);
+      if (!res.ok) throw new Error();
+      const { data: results } = await res.json();
+      if (!results || results.length === 0) {
+        return setToast({ msg: "No student records found.", type: "error" });
+      }
+
+      const headers = ["Rank", "Full Name", "Daily Score", "Examination Score", "Grand Total", "Grade"];
+      const rows = results.map((r: any, idx: number) => [
+        `"${idx + 1}"`,
+        `"${r.fullName.replace(/"/g, '""')}"`,
+        `"${r.dailyScore ?? 0}"`,
+        `"${r.examScore !== undefined && r.examScore !== null ? r.examScore : "N/A"}"`,
+        `"${r.grandTotal ?? 0}"`,
+        `"${r.grade || "-"}"`
+      ]);
+
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((row: any) => row.join(","))].join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      const dateStr = new Date().toISOString().split("T")[0];
+      const cleanTitle = selectedProgram.titleEn.replace(/[^a-zA-Z0-9_-]/g, "_");
+      link.setAttribute("download", `Mutoon_Marks_Report_${cleanTitle}_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setToast({ msg: "Results spreadsheet downloaded successfully!", type: "success" });
+    } catch {
+      setToast({ msg: "Failed to download results spreadsheet.", type: "error" });
+    }
+  };
+
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || student.email.toLowerCase().includes(searchTerm.toLowerCase());
     const isMarked = marksData[student.id] !== undefined && marksData[student.id].trim() !== "";
@@ -466,14 +514,25 @@ export default function TeacherDailyMarks() {
                   {selectedProgram.titleEn}
                 </h2>
               </div>
-              <button 
-                onClick={handleDownloadPDF}
-                disabled={isGeneratingPDF}
-                className="inline-flex items-center bg-white border border-[#e2e8f0] text-[#001232] px-4 py-2.5 rounded-lg font-bold hover:bg-[#f8fafc] transition-colors shadow-sm w-full sm:w-auto justify-center disabled:opacity-50"
-              >
-                {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 text-[#FFB902] animate-spin" /> : <FileText className="w-4 h-4 mr-2 text-[#FFB902]" />}
-                {isGeneratingPDF ? "Generating PDF..." : "Daily Marks Report"}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                <button 
+                  onClick={handleDownloadCSV}
+                  className="inline-flex items-center bg-white border border-[#e2e8f0] text-[#001232] px-3.5 py-2.5 rounded-lg text-sm font-bold hover:bg-[#f8fafc] transition-colors shadow-xs justify-center"
+                  title="Export results spreadsheet (Excel / CSV with UTF-8 support)"
+                >
+                  <Download className="w-4 h-4 mr-2 text-green-600" />
+                  <span>Export CSV</span>
+                </button>
+                <button 
+                  onClick={handleDownloadPDF}
+                  disabled={isGeneratingPDF}
+                  className="inline-flex items-center bg-white border border-[#e2e8f0] text-[#001232] px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-[#f8fafc] transition-colors shadow-xs justify-center disabled:opacity-50"
+                  title="Download official PDF report"
+                >
+                  {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 text-[#FFB902] animate-spin" /> : <FileText className="w-4 h-4 mr-2 text-[#FFB902]" />}
+                  {isGeneratingPDF ? "Generating PDF..." : "Daily Marks Report"}
+                </button>
+              </div>
             </div>
 
             {isInitializing ? (
