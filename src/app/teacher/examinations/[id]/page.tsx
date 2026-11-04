@@ -7,7 +7,8 @@ import Image from "next/image";
 import {
   ArrowLeft, RefreshCw, Users, CheckCircle2, AlertCircle,
   Clock, ShieldAlert, Award, FileText, ChevronDown, ChevronUp,
-  Loader2, Check, X, Search, Sparkles, Trash2
+  Loader2, Check, X, Search, Sparkles, Trash2, RotateCcw,
+  Edit3, Sliders, AlertTriangle
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
 import { formatExamTime } from "@/lib/timezone";
@@ -88,6 +89,28 @@ export default function TeacherExamMonitoringPage({
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
 
+  // Candidate Attempt Reset modal state
+  const [candidateForReset, setCandidateForReset] = useState<{ id: string; studentName: string; email: string; score?: number } | null>(null);
+  const [isResettingAttempt, setIsResettingAttempt] = useState(false);
+
+  // Candidate Score Override modal state
+  const [candidateForScoreEdit, setCandidateForScoreEdit] = useState<{ id: string; studentName: string; currentScore: number; tabSwitches: number; grade: string } | null>(null);
+  const [newScoreInput, setNewScoreInput] = useState<string>("");
+  const [isUpdatingScore, setIsUpdatingScore] = useState(false);
+
+  // Delete Exam modal state
+  const [isDeleteExamModalOpen, setIsDeleteExamModalOpen] = useState(false);
+
+  const getGradePreview = (scoreVal: number, maxScore: number) => {
+    if (!maxScore || maxScore <= 0 || isNaN(scoreVal)) return "F";
+    const pct = (scoreVal / maxScore) * 100;
+    if (pct >= 80) return "A";
+    if (pct >= 70) return "B";
+    if (pct >= 60) return "C";
+    if (pct >= 50) return "D";
+    return "F";
+  };
+
   useEffect(() => {
     fetchMonitoringData();
     // Auto refresh every 20 seconds while monitoring
@@ -141,11 +164,59 @@ export default function TeacherExamMonitoringPage({
     }
   };
 
-  const handleDeleteExam = async () => {
-    if (!confirm(`Are you sure you want to permanently delete this examination? All student attempts, scores, and answer audit logs will be permanently deleted.`)) {
+  const handleConfirmResetAttempt = async () => {
+    if (!candidateForReset) return;
+    setIsResettingAttempt(true);
+    try {
+      const res = await fetch(`/api/teacher/exams/${examId}/attempts/${candidateForReset.id}`, {
+        method: "DELETE"
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setToast({ msg: json.message || "Attempt reset successfully. Student can now retake.", type: "success" });
+        setCandidateForReset(null);
+        fetchMonitoringData(true);
+      } else {
+        setToast({ msg: json.error || "Failed to reset attempt.", type: "error" });
+      }
+    } catch {
+      setToast({ msg: "Network error during attempt reset.", type: "error" });
+    } finally {
+      setIsResettingAttempt(false);
+    }
+  };
+
+  const handleConfirmScoreEdit = async () => {
+    if (!candidateForScoreEdit) return;
+    const num = parseFloat(newScoreInput);
+    if (isNaN(num) || num < 0 || (exam && num > exam.totalMarks)) {
+      setToast({ msg: `Please enter a valid score between 0 and ${exam?.totalMarks || 100}.`, type: "error" });
       return;
     }
 
+    setIsUpdatingScore(true);
+    try {
+      const res = await fetch(`/api/teacher/exams/${examId}/attempts/${candidateForScoreEdit.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ score: num })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setToast({ msg: json.message || "Score updated successfully!", type: "success" });
+        setCandidateForScoreEdit(null);
+        fetchMonitoringData(true);
+      } else {
+        setToast({ msg: json.error || "Failed to update score.", type: "error" });
+      }
+    } catch {
+      setToast({ msg: "Network error updating score.", type: "error" });
+    } finally {
+      setIsUpdatingScore(false);
+    }
+  };
+
+  const handleConfirmDeleteExam = async () => {
     setIsDeleting(true);
     try {
       const res = await fetch(`/api/teacher/exams/${examId}`, { method: "DELETE" });
@@ -155,10 +226,12 @@ export default function TeacherExamMonitoringPage({
         const json = await res.json();
         setToast({ msg: json.error || "Failed to delete examination.", type: "error" });
         setIsDeleting(false);
+        setIsDeleteExamModalOpen(false);
       }
     } catch {
       setToast({ msg: "Network error during deletion.", type: "error" });
       setIsDeleting(false);
+      setIsDeleteExamModalOpen(false);
     }
   };
 
@@ -227,7 +300,7 @@ export default function TeacherExamMonitoringPage({
             </button>
 
             <button
-              onClick={handleDeleteExam}
+              onClick={() => setIsDeleteExamModalOpen(true)}
               disabled={isDeleting}
               className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs sm:text-sm font-bold rounded-xl shadow-2xs transition-all disabled:opacity-50 shrink-0"
               title="Delete this examination permanently"
@@ -370,8 +443,8 @@ export default function TeacherExamMonitoringPage({
                         <p className="text-xs text-gray-400 truncate mt-0.5">{sub.student.email}</p>
                       </div>
 
-                      {/* Score & Letter Grade Pill */}
-                      <div className="flex items-center gap-3 shrink-0">
+                      {/* Score & Letter Grade Pill + Actions */}
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <div className="text-right">
                           <div className="text-base sm:text-lg font-black text-[#001232]">
                             {sub.scoreObtained} <span className="text-xs text-gray-400 font-semibold">/ {sub.totalMarks}</span>
@@ -386,6 +459,44 @@ export default function TeacherExamMonitoringPage({
                             Grade {sub.grade}
                           </span>
                         </div>
+
+                        {/* Adjust / Reconcile Score Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCandidateForScoreEdit({
+                              id: sub.id,
+                              studentName: sub.student.fullName,
+                              currentScore: sub.scoreObtained,
+                              tabSwitches: sub.tabSwitches,
+                              grade: sub.grade
+                            });
+                            setNewScoreInput(String(sub.scoreObtained));
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-colors"
+                          title="Adjust Candidate Score / Reconcile"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {/* Reset Attempt / Allow Retake Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCandidateForReset({
+                              id: sub.id,
+                              studentName: sub.student.fullName,
+                              email: sub.student.email,
+                              score: sub.scoreObtained
+                            });
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                          title="Reset Attempt (Allow Retake)"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
 
                         <div className="text-gray-400">
                           {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -487,11 +598,28 @@ export default function TeacherExamMonitoringPage({
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase">Timer Remaining</span>
-                    <div className="text-lg sm:text-xl font-black text-amber-600 font-mono">
-                      {formatTimer(cand.remainingSeconds)}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase">Timer Remaining</span>
+                      <div className="text-lg sm:text-xl font-black text-amber-600 font-mono">
+                        {formatTimer(cand.remainingSeconds)}
+                      </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCandidateForReset({
+                          id: cand.id,
+                          studentName: cand.student.fullName,
+                          email: cand.student.email
+                        });
+                      }}
+                      className="p-2 text-gray-400 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors border border-gray-100"
+                      title="Reset Attempt (Allow Restart)"
+                    >
+                      <RotateCcw className="w-4 h-4 text-red-600" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -515,6 +643,245 @@ export default function TeacherExamMonitoringPage({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ========================================================
+            MODAL 1: DESIGNED RESET ATTEMPT CONFIRMATION (ALLOW RETAKE)
+           ======================================================== */}
+        {candidateForReset && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl animate-fade-in space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-100 mx-auto sm:mx-0">
+                <RotateCcw className="w-6 h-6" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-[#001232]">Reset Examination Attempt?</h3>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  This will permanently delete this student&apos;s attempt, response logs, and recorded score. The student will be permitted to retake the examination from scratch.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#f8fafc] border border-gray-200 text-xs space-y-1">
+                <p className="text-gray-500 font-medium">Candidate:</p>
+                <p className="text-sm font-bold text-[#001232]">{candidateForReset.studentName}</p>
+                <p className="text-gray-400 font-mono text-[11px]">{candidateForReset.email}</p>
+                {candidateForReset.score !== undefined && (
+                  <p className="text-gray-600 pt-1.5 border-t border-gray-200 mt-1.5">
+                    Recorded Score: <strong>{candidateForReset.score} / {exam?.totalMarks}</strong>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCandidateForReset(null)}
+                  disabled={isResettingAttempt}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmResetAttempt}
+                  disabled={isResettingAttempt}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isResettingAttempt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span>Yes, Reset & Allow Retake</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            MODAL 2: DESIGNED SCORE ADJUSTMENT / RECONCILIATION MODAL
+           ======================================================== */}
+        {candidateForScoreEdit && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl animate-fade-in space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100">
+                    <Edit3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-[#001232]">Adjust Candidate Score</h3>
+                    <p className="text-[11px] text-gray-400">Reconcile question errors or apply penalties</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCandidateForScoreEdit(null)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Candidate Info Header */}
+              <div className="p-3 rounded-2xl bg-[#f8fafc] border border-gray-200 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-gray-400 font-semibold block text-[10px] uppercase">Candidate</span>
+                  <span className="text-sm font-bold text-[#001232]">{candidateForScoreEdit.studentName}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-gray-400 font-semibold block text-[10px] uppercase">Current Score</span>
+                  <span className="text-xs font-bold text-gray-700">
+                    {candidateForScoreEdit.currentScore} / {exam?.totalMarks} (Grade {candidateForScoreEdit.grade})
+                  </span>
+                </div>
+              </div>
+
+              {/* Tab Switch Penalty Quick-Actions */}
+              {candidateForScoreEdit.tabSwitches > 0 && (
+                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Candidate exited exam tab {candidateForScoreEdit.tabSwitches} time{candidateForScoreEdit.tabSwitches > 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = candidateForScoreEdit.currentScore;
+                        const penalized = Math.max(0, current - candidateForScoreEdit.tabSwitches);
+                        setNewScoreInput(String(penalized));
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-900 text-[11px] font-bold transition-colors"
+                    >
+                      Deduct {candidateForScoreEdit.tabSwitches} mark{candidateForScoreEdit.tabSwitches > 1 ? "s" : ""} (-1 / exit)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = candidateForScoreEdit.currentScore;
+                        const penalized = Math.max(0, current - (candidateForScoreEdit.tabSwitches * 2));
+                        setNewScoreInput(String(penalized));
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-200/80 hover:bg-amber-300 text-amber-900 text-[11px] font-bold transition-colors"
+                    >
+                      Deduct {candidateForScoreEdit.tabSwitches * 2} marks (-2 / exit)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Score Input & Grade Calculation Preview */}
+              <div className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    New Adjusted Score (0 - {exam?.totalMarks || 100}) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max={exam?.totalMarks || 100}
+                      value={newScoreInput}
+                      onChange={e => setNewScoreInput(e.target.value)}
+                      required
+                      className="w-full text-base font-bold bg-[#f8fafc] border border-gray-200 rounded-xl px-4 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                    />
+                    <span className="absolute right-4 top-3 text-xs font-bold text-gray-400">
+                      / {exam?.totalMarks} Marks
+                    </span>
+                  </div>
+                </div>
+
+                {/* Dynamic Calculated Grade Preview */}
+                {(() => {
+                  const val = parseFloat(newScoreInput);
+                  const max = exam?.totalMarks || 100;
+                  const previewGrade = getGradePreview(val, max);
+                  return (
+                    <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-gray-600">Calculated Letter Grade:</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                        previewGrade === "A" ? "bg-green-100 text-green-800" :
+                        previewGrade === "B" ? "bg-blue-100 text-blue-800" :
+                        previewGrade === "C" ? "bg-amber-100 text-amber-800" :
+                        previewGrade === "D" ? "bg-orange-100 text-orange-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        Grade {previewGrade}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCandidateForScoreEdit(null)}
+                  disabled={isUpdatingScore}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmScoreEdit}
+                  disabled={isUpdatingScore}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#001232] hover:bg-[#002255] text-[#FFB902] text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isUpdatingScore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>Save Adjusted Score</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            MODAL 3: DESIGNED DELETE EXAMINATION CONFIRMATION
+           ======================================================== */}
+        {isDeleteExamModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl animate-fade-in space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-100 mx-auto sm:mx-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-[#001232]">Permanently Delete Examination?</h3>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  This will permanently delete this examination, its questions, all candidate attempts, scores, and answer audit logs. This action cannot be reversed.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#f8fafc] border border-gray-200 text-xs space-y-1">
+                <p className="text-gray-500 font-medium">Examination Title:</p>
+                <p className="text-sm font-bold text-[#001232]">{exam?.title}</p>
+                <p className="text-gray-500 text-[11px]">{exam?.program?.titleEn}</p>
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteExamModalOpen(false)}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteExam}
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span>Yes, Delete Exam</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
