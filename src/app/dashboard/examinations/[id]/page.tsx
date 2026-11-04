@@ -114,7 +114,14 @@ export default function StudentExamRunnerPage({
       }
 
       setQuestions(json.data.questions || []);
-      setAnswers(json.data.answers || {});
+      const serverAnswers = json.data.answers || {};
+      let localCached: Record<string, string> = {};
+      try {
+        const stored = localStorage.getItem(`exam_answers_${examId}`);
+        if (stored) localCached = JSON.parse(stored);
+      } catch {}
+      const mergedAnswers = { ...localCached, ...serverAnswers };
+      setAnswers(mergedAnswers);
       setRemainingSeconds(json.data.remainingSeconds || 0);
       setTabSwitches(json.data.tabSwitches || 0);
       setScreen("taking");
@@ -176,13 +183,19 @@ export default function StudentExamRunnerPage({
     };
   }, [screen, examId]);
 
-  // 5. Select Option (Instant Switch & Auto-Save)
+  // 5. Select Option (Instant Switch & Auto-Save with Local Cache)
   const handleSelectOption = (optionKey: "A" | "B" | "C" | "D") => {
     const currentQ = questions[currentIndex];
     if (!currentQ) return;
 
-    // Immediately update local state
-    setAnswers(prev => ({ ...prev, [currentQ.id]: optionKey }));
+    // Immediately update local state and local backup
+    setAnswers(prev => {
+      const updated = { ...prev, [currentQ.id]: optionKey };
+      try {
+        localStorage.setItem(`exam_answers_${examId}`, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     // Non-blocking background save to server
     fetch(`/api/exam/${examId}/answer`, {
@@ -197,18 +210,36 @@ export default function StudentExamRunnerPage({
     });
   };
 
-  // 6. Submit Exam
+  // 6. Submit Exam (Guaranteed delivery: sends complete answers dictionary as failsafe)
   const handleFinalSubmit = async (isAutoExpire = false) => {
     setIsSubmitting(true);
     setIsConfirmModalOpen(false);
 
     try {
-      const res = await fetch(`/api/exam/${examId}/submit`, { method: "POST" });
+      // Gather latest answers from state + localStorage backup
+      let latestAnswers = answers;
+      try {
+        const stored = localStorage.getItem(`exam_answers_${examId}`);
+        if (stored) {
+          latestAnswers = { ...JSON.parse(stored), ...answers };
+        }
+      } catch {}
+
+      const res = await fetch(`/api/exam/${examId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: latestAnswers })
+      });
       const json = await res.json();
 
       if (!res.ok || !json.success) {
         throw new Error(json.error || "Failed to submit examination.");
       }
+
+      // Success: clear local storage cache
+      try {
+        localStorage.removeItem(`exam_answers_${examId}`);
+      } catch {}
 
       setScreen("submitted");
     } catch (err: any) {

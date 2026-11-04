@@ -87,6 +87,34 @@ export async function GET(
     const submitted = attempts
       .filter(a => a.status === "SUBMITTED" || a.status === "TIMED_OUT")
       .map(attempt => {
+        // Build answer lookup map for this candidate
+        const studentAnswerMap = new Map<string, any>();
+        attempt.answers.forEach(ans => {
+          studentAnswerMap.set(ans.questionId, ans);
+        });
+
+        // Always iterate through all exam.questions so the audit displays every question for every student
+        const fullAnswersAudit = exam.questions.map(q => {
+          const ans = studentAnswerMap.get(q.id);
+          const selectedOption = ans?.selectedOption || null;
+          const isCorrect = ans ? (ans.isCorrect ?? false) : false;
+          const marksAwarded = ans ? (ans.marksAwarded ?? 0) : 0;
+
+          return {
+            questionOrder: q.order,
+            questionText: q.questionText,
+            optionA: q.optionA,
+            optionB: q.optionB,
+            optionC: q.optionC,
+            optionD: q.optionD,
+            selectedOption,
+            correctOption: q.correctOption,
+            isCorrect,
+            marksAwarded,
+            questionMarks: q.marks
+          };
+        }).sort((a, b) => a.questionOrder - b.questionOrder);
+
         return {
           id: attempt.id,
           student: attempt.student,
@@ -97,19 +125,7 @@ export async function GET(
           totalMarks: exam.totalMarks,
           grade: attempt.grade || "F",
           tabSwitches: attempt.tabSwitches,
-          answers: attempt.answers.map(ans => ({
-            questionOrder: ans.question.order,
-            questionText: ans.question.questionText,
-            optionA: ans.question.optionA,
-            optionB: ans.question.optionB,
-            optionC: ans.question.optionC,
-            optionD: ans.question.optionD,
-            selectedOption: ans.selectedOption,
-            correctOption: ans.question.correctOption,
-            isCorrect: ans.isCorrect ?? false,
-            marksAwarded: ans.marksAwarded ?? 0,
-            questionMarks: ans.question.marks
-          })).sort((a, b) => a.questionOrder - b.questionOrder)
+          answers: fullAnswersAudit
         };
       });
 

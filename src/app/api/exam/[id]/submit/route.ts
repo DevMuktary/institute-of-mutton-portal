@@ -13,6 +13,8 @@ export async function POST(
     }
 
     const { id } = await params;
+    const body = await request.json().catch(() => ({}));
+    const clientAnswers: Record<string, string> = body?.answers || {};
 
     const attempt = await prisma.examAttempt.findUnique({
       where: {
@@ -24,7 +26,9 @@ export async function POST(
       include: {
         exam: {
           include: {
-            questions: true
+            questions: {
+              orderBy: { order: "asc" }
+            }
           }
         },
         answers: true
@@ -35,7 +39,8 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Exam attempt not found." }, { status: 404 });
     }
 
-    if (attempt.status === "SUBMITTED" || attempt.status === "TIMED_OUT") {
+    // Only reject if already submitted and fully scored
+    if (attempt.status === "SUBMITTED" && attempt.scoreObtained !== null) {
       return NextResponse.json(
         { success: true, message: "Examination has already been submitted." },
         { status: 200 }
@@ -45,18 +50,30 @@ export async function POST(
     const questions = attempt.exam.questions;
     const studentAnswers = attempt.answers;
 
-    // Create lookup map of answers
+    // Create lookup map of answers, starting with whatever is in DB
     const answerMap = new Map<string, string>();
     studentAnswers.forEach(a => {
-      if (a.selectedOption) answerMap.set(a.questionId, a.selectedOption);
+      if (a.selectedOption) answerMap.set(a.questionId, a.selectedOption.toUpperCase());
     });
+
+    // Merge in answers provided directly in client submission payload (failsafe for connection drops)
+    if (clientAnswers && typeof clientAnswers === "object") {
+      Object.entries(clientAnswers).forEach(([qId, opt]) => {
+        if (opt && typeof opt === "string") {
+          const norm = opt.trim().toUpperCase();
+          if (["A", "B", "C", "D"].includes(norm)) {
+            answerMap.set(qId, norm);
+          }
+        }
+      });
+    }
 
     let totalScore = 0;
 
-    // Grade each question server-side
+    // Grade each question server-side and persist full response record
     for (const q of questions) {
-      const selected = answerMap.get(q.id);
-      const isCorrect = selected === q.correctOption;
+      const selected = answerMap.get(q.id) || null;
+      const isCorrect = selected ? selected === q.correctOption : false;
       const marksAwarded = isCorrect ? q.marks : 0;
       totalScore += marksAwarded;
 
@@ -69,13 +86,14 @@ export async function POST(
           }
         },
         update: {
+          selectedOption: selected,
           isCorrect,
           marksAwarded
         },
         create: {
           attemptId: attempt.id,
           questionId: q.id,
-          selectedOption: selected || null,
+          selectedOption: selected,
           isCorrect,
           marksAwarded
         }

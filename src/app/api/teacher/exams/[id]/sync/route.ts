@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, calculateGrade } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
@@ -16,18 +16,24 @@ export async function POST(
 
     const exam = await prisma.exam.findUnique({
       where: { id },
-      include: { program: true }
+      include: {
+        program: true,
+        questions: { orderBy: { order: "asc" } }
+      }
     });
 
     if (!exam) {
       return NextResponse.json({ success: false, error: "Exam not found." }, { status: 404 });
     }
 
-    // Get all submitted attempts
+    // Get all submitted or timed-out attempts with existing answers
     const submittedAttempts = await prisma.examAttempt.findMany({
       where: {
         examId: id,
         status: { in: ["SUBMITTED", "TIMED_OUT"] }
+      },
+      include: {
+        answers: true
       }
     });
 
@@ -38,11 +44,58 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Sync each student's score into ExamMark for the program
+    // Re-evaluate and sync each student's score
     let syncedCount = 0;
     for (const attempt of submittedAttempts) {
-      const score = attempt.scoreObtained ?? 0;
+      const answerMap = new Map<string, any>();
+      attempt.answers.forEach(a => {
+        answerMap.set(a.questionId, a);
+      });
 
+      let calculatedScore = 0;
+
+      // Ensure every question has an ExamAnswer record with proper grading
+      for (const q of exam.questions) {
+        const existingAns = answerMap.get(q.id);
+        const selected = existingAns?.selectedOption || null;
+        const isCorrect = selected ? selected.toUpperCase() === q.correctOption.toUpperCase() : false;
+        const marksAwarded = isCorrect ? q.marks : 0;
+        calculatedScore += marksAwarded;
+
+        await prisma.examAnswer.upsert({
+          where: {
+            attemptId_questionId: {
+              attemptId: attempt.id,
+              questionId: q.id
+            }
+          },
+          update: {
+            selectedOption: selected,
+            isCorrect,
+            marksAwarded
+          },
+          create: {
+            attemptId: attempt.id,
+            questionId: q.id,
+            selectedOption: selected,
+            isCorrect,
+            marksAwarded
+          }
+        });
+      }
+
+      const grade = calculateGrade(calculatedScore, exam.totalMarks);
+
+      // Update attempt score and grade
+      await prisma.examAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          scoreObtained: calculatedScore,
+          grade
+        }
+      });
+
+      // Sync verified score into ExamMark for Master Marksheet / Certificates
       await prisma.examMark.upsert({
         where: {
           studentId_programId: {
@@ -51,13 +104,13 @@ export async function POST(
           }
         },
         update: {
-          score: score,
+          score: calculatedScore,
           date: new Date()
         },
         create: {
           studentId: attempt.studentId,
           programId: exam.programId,
-          score: score,
+          score: calculatedScore,
           date: new Date()
         }
       });
@@ -66,7 +119,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `Successfully synchronized ${syncedCount} student examination score(s) to the Master Marksheet.`,
+      message: `Successfully synchronized and verified ${syncedCount} student examination score(s) to the Master Marksheet.`,
       syncedCount
     });
   } catch (error) {

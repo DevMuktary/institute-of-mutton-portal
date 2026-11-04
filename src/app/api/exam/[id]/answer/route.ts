@@ -40,9 +40,9 @@ export async function POST(
       return NextResponse.json({ success: false, error: "No active examination in progress." }, { status: 403 });
     }
 
-    // Check timer duration
+    // Check timer duration with generous 5-minute network latency grace period
     const started = new Date(attempt.startedAt).getTime();
-    const durationMs = (attempt.exam.durationMinutes * 60 + 30) * 1000; // 30s grace period for latency
+    const durationMs = (attempt.exam.durationMinutes * 60 + 300) * 1000; // 5 mins grace period for latency
     const now = Date.now();
 
     if (now - started > durationMs) {
