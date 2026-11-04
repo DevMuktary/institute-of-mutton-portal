@@ -423,24 +423,36 @@ export default function StudentExamRunnerPage({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Live Countdown Timer */}
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-mono font-bold text-xs sm:text-sm border ${
+            <div className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl font-mono font-bold text-xs sm:text-sm border ${
               remainingSeconds < 300
                 ? "bg-red-50 text-red-700 border-red-200 animate-pulse"
                 : "bg-amber-50 text-amber-900 border-amber-200"
             }`}>
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>{formatTimer(remainingSeconds)}</span>
             </div>
 
             {/* Question Review Drawer Button */}
             <button
+              type="button"
               onClick={() => setIsDrawerOpen(true)}
-              className="p-2 text-gray-600 hover:text-[#001232] bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors relative"
-              title="Question Palette"
+              className="p-2 text-gray-600 hover:text-[#001232] bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors shrink-0"
+              title="Question Grid Palette"
             >
               <LayoutGrid className="w-4 h-4" />
+            </button>
+
+            {/* Header Submit Button (Safely isolated from question navigation) */}
+            <button
+              type="button"
+              onClick={() => setIsConfirmModalOpen(true)}
+              className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              title="Submit Examination"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Submit</span>
             </button>
           </div>
         </div>
@@ -532,41 +544,55 @@ export default function StudentExamRunnerPage({
         )}
       </main>
 
-      {/* Fixed Bottom Navigation Bar (Mobile-first Compact Controls) */}
+      {/* Fixed Bottom Navigation Bar (100% Focused on Question Navigation) */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30 py-3 px-4 shadow-lg">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-          {/* Previous Button (Compact Icon) */}
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-2.5 sm:gap-3">
+          {/* Previous Button */}
           <button
+            type="button"
             onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
             disabled={currentIndex === 0}
-            className="w-12 h-11 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-[#001232] transition-colors"
-            title="Previous Question"
+            className="flex-1 max-w-[130px] sm:max-w-[150px] py-2.5 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-[#001232] font-bold text-xs sm:text-sm disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-all shadow-xs"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" />
+            <span>Previous</span>
           </button>
 
-          {/* Quick Info & Submit Action */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsConfirmModalOpen(true)}
-              className="px-4 sm:px-6 py-2.5 bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-black text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-1.5"
-            >
-              <span>Submit Exam</span>
-              <span className="text-[11px] text-gray-400 hidden sm:inline">
-                ({answeredCount}/{questions.length})
-              </span>
-            </button>
-          </div>
-
-          {/* Next Button (Compact Icon) */}
+          {/* Center Question Tracker (Tap to view all in palette) */}
           <button
-            onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
-            disabled={currentIndex === questions.length - 1}
-            className="w-12 h-11 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-[#001232] transition-colors"
-            title="Next Question"
+            type="button"
+            onClick={() => setIsDrawerOpen(true)}
+            className="px-2 sm:px-3 py-1 rounded-xl hover:bg-gray-50 transition-colors text-center"
+            title="View all questions"
           >
-            <ChevronRight className="w-5 h-5" />
+            <span className="text-xs sm:text-sm font-black text-[#001232] block">
+              {currentIndex + 1} <span className="text-gray-400 font-normal">/</span> {questions.length}
+            </span>
+            <span className="text-[10px] font-bold text-gray-400 block whitespace-nowrap">
+              {answeredCount} Answered
+            </span>
           </button>
+
+          {/* Next Button OR Final Question Submit */}
+          {currentIndex < questions.length - 1 ? (
+            <button
+              type="button"
+              onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+              className="flex-1 max-w-[130px] sm:max-w-[150px] py-2.5 px-3 rounded-xl bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-[0.98]"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsConfirmModalOpen(true)}
+              className="flex-1 max-w-[150px] sm:max-w-[180px] py-2.5 px-3.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md animate-pulse"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Finish & Submit</span>
+            </button>
+          )}
         </div>
       </footer>
 
@@ -647,8 +673,11 @@ export default function StudentExamRunnerPage({
 
             {/* Warning if unanswered */}
             {answeredCount < questions.length && (
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs font-semibold text-amber-800 text-center">
-                Warning: {questions.length - answeredCount} question(s) remain unanswered!
+              <div className="bg-amber-50 border border-amber-300 p-3 rounded-2xl text-xs font-bold text-amber-900 text-center space-y-1">
+                <p>⚠️ Attention: {questions.length - answeredCount} question(s) are still UNANSWERED!</p>
+                <p className="font-normal text-[11px] text-amber-800">
+                  Unanswered questions will receive 0 marks.
+                </p>
               </div>
             )}
 
@@ -660,18 +689,18 @@ export default function StudentExamRunnerPage({
               <button
                 type="button"
                 onClick={() => setIsConfirmModalOpen(false)}
-                className="py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 transition-colors"
+                className="py-3 rounded-xl border border-gray-300 text-gray-700 font-bold text-xs hover:bg-gray-50 transition-colors"
               >
-                Return to Review
+                Keep Answering
               </button>
 
               <button
                 type="button"
                 onClick={() => handleFinalSubmit(false)}
                 disabled={isSubmitting}
-                className="py-2.5 rounded-xl bg-[#001232] hover:bg-[#002255] text-[#FFB902] font-black text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-md"
               >
-                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 <span>Confirm & Submit</span>
               </button>
             </div>
