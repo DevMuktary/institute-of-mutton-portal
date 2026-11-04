@@ -11,7 +11,7 @@ import {
   Edit3, Sliders, AlertTriangle
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
-import { formatExamTime } from "@/lib/timezone";
+import { formatExamTime, formatDateToLagosInput, lagosInputToIso, APP_TIMEZONE_LABEL } from "@/lib/timezone";
 
 interface StudentAnswerAudit {
   questionOrder: number;
@@ -100,6 +100,12 @@ export default function TeacherExamMonitoringPage({
 
   // Delete Exam modal state
   const [isDeleteExamModalOpen, setIsDeleteExamModalOpen] = useState(false);
+
+  // Extend Exam Time modal state
+  const [isExtendTimeModalOpen, setIsExtendTimeModalOpen] = useState(false);
+  const [extendDurationInput, setExtendDurationInput] = useState<string>("");
+  const [extendEndsAtInput, setExtendEndsAtInput] = useState<string>("");
+  const [isSavingTimeExtension, setIsSavingTimeExtension] = useState(false);
 
   const getGradePreview = (scoreVal: number, maxScore: number) => {
     if (!maxScore || maxScore <= 0 || isNaN(scoreVal)) return "F";
@@ -235,6 +241,60 @@ export default function TeacherExamMonitoringPage({
     }
   };
 
+  const handleOpenExtendTimeModal = () => {
+    if (!exam) return;
+    setExtendDurationInput(String(exam.durationMinutes || 60));
+    setExtendEndsAtInput(formatDateToLagosInput(exam.endsAt));
+    setIsExtendTimeModalOpen(true);
+  };
+
+  const handleQuickAddMinutes = (additionalMins: number) => {
+    const currentDur = parseInt(extendDurationInput, 10) || (exam?.durationMinutes || 60);
+    const newDur = currentDur + additionalMins;
+    setExtendDurationInput(String(newDur));
+
+    if (extendEndsAtInput) {
+      const currentEnds = new Date(lagosInputToIso(extendEndsAtInput));
+      if (!isNaN(currentEnds.getTime())) {
+        const advanced = new Date(currentEnds.getTime() + additionalMins * 60 * 1000);
+        setExtendEndsAtInput(formatDateToLagosInput(advanced));
+      }
+    }
+  };
+
+  const handleSaveTimeExtension = async () => {
+    if (!extendDurationInput || Number(extendDurationInput) < 5) {
+      setToast({ msg: "Please enter a valid duration (minimum 5 minutes).", type: "error" });
+      return;
+    }
+    if (!extendEndsAtInput) {
+      setToast({ msg: "Please specify an exam close time.", type: "error" });
+      return;
+    }
+
+    setIsSavingTimeExtension(true);
+    try {
+      const res = await fetch(`/api/teacher/exams/${examId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          durationMinutes: Number(extendDurationInput),
+          endsAt: lagosInputToIso(extendEndsAtInput)
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "Failed to extend exam time.");
+
+      setToast({ msg: `Exam extended to ${extendDurationInput} mins! Active student timers are now updated.`, type: "success" });
+      setIsExtendTimeModalOpen(false);
+      fetchMonitoringData(false);
+    } catch (err: any) {
+      setToast({ msg: err.message || "Failed to extend exam time.", type: "error" });
+    } finally {
+      setIsSavingTimeExtension(false);
+    }
+  };
+
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -280,7 +340,7 @@ export default function TeacherExamMonitoringPage({
             <span>Back to Examinations</span>
           </Link>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
             <button
               onClick={() => fetchMonitoringData(false)}
               disabled={isRefreshing}
@@ -288,6 +348,17 @@ export default function TeacherExamMonitoringPage({
               title="Refresh Data"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-600" : ""}`} />
+            </button>
+
+            {/* Quick Safe Exam Time Extension */}
+            <button
+              type="button"
+              onClick={handleOpenExtendTimeModal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-3.5 sm:py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs sm:text-sm font-bold rounded-xl shadow-2xs transition-all shrink-0"
+              title="Safely extend exam time without touching questions"
+            >
+              <Clock className="w-4 h-4 text-blue-600" />
+              <span>Extend Time</span>
             </button>
 
             <button
@@ -511,6 +582,19 @@ export default function TeacherExamMonitoringPage({
                           <span>Submitted: {formatExamTime(sub.submittedAt)}</span>
                           <span>Responses Audit ({sub.answers.length} Questions)</span>
                         </div>
+
+                        {/* Notice if question selections were reset by past admin edit */}
+                        {sub.scoreObtained > 0 && sub.answers.every(a => a.selectedOption === null) && (
+                          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>Score Safely Preserved: {sub.scoreObtained} / {sub.totalMarks} Marks (Grade {sub.grade})</span>
+                            </div>
+                            <p className="text-[11px] text-amber-800 leading-relaxed">
+                              Question-by-question option logs were cleared when exam timing was updated earlier during the live session. The candidate&apos;s overall score and master marksheet entry remain 100% intact and verified.
+                            </p>
+                          </div>
+                        )}
 
                         <div className="space-y-2.5">
                           {sub.answers.map(ans => (
@@ -879,6 +963,119 @@ export default function TeacherExamMonitoringPage({
                 >
                   {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   <span>Yes, Delete Exam</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            MODAL 4: DESIGNED EXTEND EXAM TIME / ADJUST SCHEDULE
+           ======================================================== */}
+        {isExtendTimeModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl animate-fade-in space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-100">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-[#001232]">Extend Exam Time</h3>
+                    <p className="text-[11px] text-gray-400">Safely adjusts student countdown & close time</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsExtendTimeModalOpen(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Informative Safety Notice */}
+              <div className="p-3 rounded-2xl bg-green-50 border border-green-200 text-[11px] text-green-900 leading-relaxed">
+                ✅ <strong>Zero Risk:</strong> This updates only time parameters. Questions and student answers are strictly preserved and never touched.
+              </div>
+
+              {/* Quick Add Buttons */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Quick Add Minutes
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[15, 30, 45, 60].map(mins => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => handleQuickAddMinutes(mins)}
+                      className="py-2 px-2.5 rounded-xl bg-gray-100 hover:bg-[#001232] hover:text-[#FFB902] font-black text-xs text-[#001232] transition-all"
+                    >
+                      +{mins}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Duration Input */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Student Timer Duration (Minutes) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="5"
+                    max="600"
+                    value={extendDurationInput}
+                    onChange={e => setExtendDurationInput(e.target.value)}
+                    required
+                    className="w-full text-base font-bold bg-[#f8fafc] border border-gray-200 rounded-xl px-4 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                  />
+                  <span className="absolute right-4 top-3 text-xs font-bold text-gray-400">
+                    Minutes
+                  </span>
+                </div>
+              </div>
+
+              {/* Close Time Input (WAT) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Exam Close Time *
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                    {APP_TIMEZONE_LABEL} (UTC+1)
+                  </span>
+                </div>
+                <input
+                  type="datetime-local"
+                  value={extendEndsAtInput}
+                  onChange={e => setExtendEndsAtInput(e.target.value)}
+                  required
+                  className="w-full text-sm font-bold bg-[#f8fafc] border border-gray-200 rounded-xl px-4 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsExtendTimeModalOpen(false)}
+                  disabled={isSavingTimeExtension}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTimeExtension}
+                  disabled={isSavingTimeExtension}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSavingTimeExtension ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>Save Extended Time</span>
                 </button>
               </div>
             </div>

@@ -150,6 +150,32 @@ export default function StudentExamRunnerPage({
     return () => clearInterval(timer);
   }, [screen]);
 
+  // Periodic background time-sync (every 40s) so live time extensions apply automatically
+  useEffect(() => {
+    if (screen !== "taking") return;
+
+    const syncTime = async () => {
+      try {
+        const res = await fetch(`/api/exam/${examId}/time`);
+        const json = await res.json();
+        if (json.success && json.data?.remainingSeconds !== undefined) {
+          const sRem = json.data.remainingSeconds;
+          setRemainingSeconds(prev => {
+            if (sRem > prev + 15) {
+              setToastMessage("⏰ Exam time has been extended by administrator!");
+              setTimeout(() => setToastMessage(null), 4000);
+              return sRem;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(syncTime, 40000);
+    return () => clearInterval(interval);
+  }, [screen, examId]);
+
   // 4. Anti-Cheat Visibility / Blur Monitor
   useEffect(() => {
     if (screen !== "taking") return;
@@ -205,9 +231,24 @@ export default function StudentExamRunnerPage({
         questionId: currentQ.id,
         selectedOption: optionKey
       })
-    }).catch(err => {
-      console.warn("Auto-save answer background warning:", err);
-    });
+    })
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && json.data?.remainingSeconds !== undefined) {
+          const sRem = json.data.remainingSeconds;
+          setRemainingSeconds(prev => {
+            if (sRem > prev + 15) {
+              setToastMessage("⏰ Exam time has been extended by administrator!");
+              setTimeout(() => setToastMessage(null), 4000);
+              return sRem;
+            }
+            return prev;
+          });
+        }
+      })
+      .catch(err => {
+        console.warn("Auto-save answer background warning:", err);
+      });
   };
 
   // 6. Submit Exam (Guaranteed delivery: sends complete answers dictionary as failsafe)

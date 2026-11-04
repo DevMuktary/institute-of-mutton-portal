@@ -67,7 +67,19 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ success: true, data: { questionId, selectedOption: answer.selectedOption } });
+    // Calculate live remaining seconds based on latest exam duration & availability window
+    const remainingFromDuration = Math.max(0, Math.floor(((attempt.exam.durationMinutes * 60 * 1000) - (now - started)) / 1000));
+    const remainingFromWindow = Math.max(0, Math.floor((new Date(attempt.exam.endsAt).getTime() - now) / 1000));
+    const remainingSeconds = Math.min(remainingFromDuration, remainingFromWindow);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        questionId,
+        selectedOption: answer.selectedOption,
+        remainingSeconds
+      }
+    });
   } catch (error) {
     console.error("POST /api/exam/[id]/answer error:", error);
     return NextResponse.json({ success: false, error: "Failed to save response." }, { status: 500 });

@@ -128,6 +128,7 @@ function CreateExamWizard() {
           setTotalMarks(e.totalMarks || 60);
           if (e.questions && e.questions.length > 0) {
             setQuestions(e.questions.map((q: any) => ({
+              id: q.id,
               order: q.order,
               questionText: q.questionText || "",
               optionA: q.optionA || "",
