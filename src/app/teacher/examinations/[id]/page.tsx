@@ -10,6 +10,7 @@ import {
   Loader2, Check, X, Search, Sparkles, Trash2
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
+import { formatExamTime } from "@/lib/timezone";
 
 interface StudentAnswerAudit {
   questionOrder: number;
@@ -396,7 +397,7 @@ export default function TeacherExamMonitoringPage({
                     {isExpanded && (
                       <div className="p-4 sm:p-5 bg-[#f8fafc] border-t border-gray-100 space-y-3">
                         <div className="flex items-center justify-between text-xs font-bold text-gray-500 border-b border-gray-200 pb-2">
-                          <span>Submitted: {new Date(sub.submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <span>Submitted: {formatExamTime(sub.submittedAt)}</span>
                           <span>Responses Audit ({sub.answers.length} Questions)</span>
                         </div>
 

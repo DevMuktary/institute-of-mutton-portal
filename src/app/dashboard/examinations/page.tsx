@@ -8,6 +8,7 @@ import {
   ArrowLeft, GraduationCap, Clock, Calendar, AlertCircle,
   CheckCircle2, ArrowRight, Lock, PlayCircle, Loader2
 } from "lucide-react";
+import { formatExamTime, formatExamDate } from "@/lib/timezone";
 
 interface StudentExam {
   id: string;
@@ -167,14 +168,14 @@ export default function StudentExaminationsListPage() {
                     </div>
                     <div className="flex items-center gap-1.5 col-span-2 sm:col-span-1">
                       <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      <span>Closes at {endDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      <span>Closes at {formatExamTime(exam.endsAt)}</span>
                     </div>
                   </div>
 
                   {/* Action Button */}
                   <div className="pt-1 flex items-center justify-between">
                     <span className="text-[11px] text-gray-400">
-                      Window: {startDate.toLocaleDateString([], { month: "short", day: "numeric" })}
+                      Window: {formatExamDate(exam.startsAt)}
                     </span>
 
                     {exam.state === "OPEN" && (

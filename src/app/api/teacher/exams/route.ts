@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
+import { parseExamDateOnServer } from "@/lib/timezone";
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,8 +68,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const start = startsAt ? new Date(startsAt) : new Date();
-    const end = endsAt ? new Date(endsAt) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const start = startsAt ? parseExamDateOnServer(startsAt) : new Date();
+    const end = endsAt ? parseExamDateOnServer(endsAt) : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // Verify program exists
     const program = await prisma.program.findUnique({ where: { id: programId } });

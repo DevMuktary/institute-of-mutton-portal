@@ -10,6 +10,12 @@ import {
   HelpCircle, ChevronRight, ChevronLeft, Bookmark, Send
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
+import {
+  formatDateToLagosInput,
+  lagosInputToIso,
+  getTodayLagosTimeString,
+  APP_TIMEZONE_LABEL
+} from "@/lib/timezone";
 
 interface Program {
   id: string;
@@ -50,15 +56,8 @@ function CreateExamWizard() {
   );
 
   // Step 2: Time & Scoring
-  const getTodayTimeString = (hours: number, minutes: number = 0) => {
-    const d = new Date();
-    d.setHours(hours, minutes, 0, 0);
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
-
-  const [startsAt, setStartsAt] = useState(getTodayTimeString(8, 0));
-  const [endsAt, setEndsAt] = useState(getTodayTimeString(20, 0));
+  const [startsAt, setStartsAt] = useState(getTodayLagosTimeString(8, 0));
+  const [endsAt, setEndsAt] = useState(getTodayLagosTimeString(20, 0));
   const [durationMinutes, setDurationMinutes] = useState<number | string>(45);
   const [markPerQuestion, setMarkPerQuestion] = useState<number | string>(2);
   const [totalMarks, setTotalMarks] = useState<number | string>(60);
@@ -119,14 +118,10 @@ function CreateExamWizard() {
           setDescription(e.description || "");
           setInstructions(e.instructions || "");
           if (e.startsAt) {
-            const d = new Date(e.startsAt);
-            const pad = (n: number) => n.toString().padStart(2, "0");
-            setStartsAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+            setStartsAt(formatDateToLagosInput(e.startsAt));
           }
           if (e.endsAt) {
-            const d = new Date(e.endsAt);
-            const pad = (n: number) => n.toString().padStart(2, "0");
-            setEndsAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+            setEndsAt(formatDateToLagosInput(e.endsAt));
           }
           setDurationMinutes(e.durationMinutes || 45);
           setMarkPerQuestion(e.markPerQuestion || 2);
@@ -178,7 +173,7 @@ function CreateExamWizard() {
     if (!startsAt || !endsAt) {
       return setToast({ msg: "Please specify start and end dates.", type: "error" });
     }
-    if (new Date(endsAt) <= new Date(startsAt)) {
+    if (new Date(lagosInputToIso(endsAt)) <= new Date(lagosInputToIso(startsAt))) {
       return setToast({ msg: "Availability close time must be after start time.", type: "error" });
     }
     if (Number(durationMinutes) < 5) {
@@ -237,8 +232,8 @@ function CreateExamWizard() {
         title: title.trim(),
         description: description.trim(),
         instructions: instructions.trim(),
-        startsAt,
-        endsAt,
+        startsAt: lagosInputToIso(startsAt),
+        endsAt: lagosInputToIso(endsAt),
         durationMinutes: Number(durationMinutes) || 45,
         markPerQuestion: Number(markPerQuestion) || 2,
         totalMarks: Number(totalMarks) || 60,
@@ -288,7 +283,7 @@ function CreateExamWizard() {
       setCurrentStep(1);
       return setToast({ msg: "Please enter an examination title in Step 1.", type: "error" });
     }
-    if (new Date(endsAt) <= new Date(startsAt)) {
+    if (new Date(lagosInputToIso(endsAt)) <= new Date(lagosInputToIso(startsAt))) {
       setCurrentStep(2);
       return setToast({ msg: "Close time must be after start time in Step 2.", type: "error" });
     }
@@ -311,8 +306,8 @@ function CreateExamWizard() {
         title: title.trim(),
         description: description.trim(),
         instructions: instructions.trim(),
-        startsAt,
-        endsAt,
+        startsAt: lagosInputToIso(startsAt),
+        endsAt: lagosInputToIso(endsAt),
         durationMinutes: Number(durationMinutes),
         markPerQuestion: Number(markPerQuestion),
         totalMarks: Number(totalMarks),
@@ -638,9 +633,14 @@ function CreateExamWizard() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Availability Starts At *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Availability Starts At *
+                  </label>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    WAT (West Africa Time / UTC+1)
+                  </span>
+                </div>
                 <input
                   type="datetime-local"
                   value={startsAt}
@@ -648,13 +648,18 @@ function CreateExamWizard() {
                   required
                   className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
                 />
-                <p className="text-[11px] text-gray-400 mt-1">When candidates can first open the exam (e.g. 08:00 AM).</p>
+                <p className="text-[11px] text-gray-400 mt-1">When candidates can first open the exam in West Africa Time (e.g. 08:30 AM).</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Availability Closes At *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Availability Closes At *
+                  </label>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    WAT (West Africa Time / UTC+1)
+                  </span>
+                </div>
                 <input
                   type="datetime-local"
                   value={endsAt}
@@ -662,7 +667,7 @@ function CreateExamWizard() {
                   required
                   className="w-full text-sm font-semibold bg-[#f8fafc] border border-gray-200 rounded-xl px-3.5 py-2.5 text-[#001232] focus:outline-none focus:border-[#001232]"
                 />
-                <p className="text-[11px] text-gray-400 mt-1">When exam closes for all candidates (e.g. 08:00 PM).</p>
+                <p className="text-[11px] text-gray-400 mt-1">When exam closes for all candidates in West Africa Time (e.g. 08:00 PM).</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">

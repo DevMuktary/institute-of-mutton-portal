@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
+import { parseExamDateOnServer } from "@/lib/timezone";
 
 export async function GET(
   request: NextRequest,
@@ -67,8 +68,8 @@ export async function PUT(
     if (title) updateData.title = title.trim();
     if (description !== undefined) updateData.description = description ? description.trim() : null;
     if (instructions !== undefined) updateData.instructions = instructions ? instructions.trim() : null;
-    if (startsAt) updateData.startsAt = new Date(startsAt);
-    if (endsAt) updateData.endsAt = new Date(endsAt);
+    if (startsAt) updateData.startsAt = parseExamDateOnServer(startsAt);
+    if (endsAt) updateData.endsAt = parseExamDateOnServer(endsAt);
     if (durationMinutes) updateData.durationMinutes = parseInt(durationMinutes, 10);
     if (status) updateData.status = status;
     if (totalMarks !== undefined) updateData.totalMarks = Number(totalMarks);

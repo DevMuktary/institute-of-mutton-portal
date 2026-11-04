@@ -9,6 +9,7 @@ import {
   Users, CheckCircle2, AlertCircle, Trash2, Edit3, Eye, Loader2, BookOpen
 } from "lucide-react";
 import TeacherNavbar from "@/components/TeacherNavbar";
+import { formatExamDateRange } from "@/lib/timezone";
 
 interface Program {
   id: string;
@@ -262,11 +263,7 @@ export default function TeacherExaminationsPage() {
                   <div className="text-[11px] text-gray-500 bg-[#f8fafc] px-3 py-1.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
                     <div>
                       <span className="font-semibold text-gray-700">Window: </span>
-                      {new Date(exam.startsAt).toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
-                      {new Date(exam.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      {" — "}
-                      {new Date(exam.endsAt).toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
-                      {new Date(exam.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {formatExamDateRange(exam.startsAt, exam.endsAt)}
                     </div>
                   </div>
 
