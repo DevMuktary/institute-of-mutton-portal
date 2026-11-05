@@ -580,64 +580,68 @@ export default function TeacherExamMonitoringPage({
                       <div className="p-4 sm:p-5 bg-[#f8fafc] border-t border-gray-100 space-y-3">
                         <div className="flex items-center justify-between text-xs font-bold text-gray-500 border-b border-gray-200 pb-2">
                           <span>Submitted: {formatExamTime(sub.submittedAt)}</span>
-                          <span>Responses Audit ({sub.answers.length} Questions)</span>
+                          <span>Responses Audit</span>
                         </div>
 
-                        {/* Notice if question selections were reset by past admin edit */}
-                        {sub.scoreObtained > 0 && sub.answers.every(a => a.selectedOption === null) && (
-                          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
-                            <div className="flex items-center gap-1.5 font-bold">
-                              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span>Score Safely Preserved: {sub.scoreObtained} / {sub.totalMarks} Marks (Grade {sub.grade})</span>
+                        {/* If questions were re-indexed during edit and individual choices were reset */}
+                        {sub.scoreObtained > 0 && sub.answers.every(a => a.selectedOption === null) ? (
+                          <div className="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 text-center space-y-2.5 my-2">
+                            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                              <Award className="w-5 h-5 text-amber-700" />
                             </div>
-                            <p className="text-[11px] text-amber-800 leading-relaxed">
-                              Question-by-question option logs were cleared when exam timing was updated earlier during the live session. The candidate&apos;s overall score and master marksheet entry remain 100% intact and verified.
-                            </p>
+                            <div>
+                              <h4 className="text-sm font-bold text-amber-900">
+                                Official Verified Score: {sub.scoreObtained} / {sub.totalMarks} Marks (Grade {sub.grade})
+                              </h4>
+                              <p className="text-xs text-amber-800 max-w-md mx-auto mt-1 leading-relaxed">
+                                This candidate completed the examination prior to the live schedule extension. Their final score and master marksheet record are 100% verified and recorded. Individual question breakdown is archived because questions were re-indexed.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5">
+                            {sub.answers.map(ans => (
+                              <div
+                                key={ans.questionOrder}
+                                className={`p-3 rounded-xl border text-xs sm:text-sm ${
+                                  ans.isCorrect
+                                    ? "bg-green-50/60 border-green-200"
+                                    : "bg-red-50/40 border-red-200"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="font-bold text-[#001232]">
+                                    Q{ans.questionOrder}:
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    ans.isCorrect ? "bg-green-200 text-green-900" : "bg-red-200 text-red-900"
+                                  }`}>
+                                    {ans.marksAwarded} / {ans.questionMarks} Mark{ans.questionMarks > 1 ? "s" : ""}
+                                  </span>
+                                </div>
+
+                                {/* Question Stem in Arabic Font */}
+                                <p dir="auto" className="font-amiri text-sm sm:text-base font-semibold text-gray-800 mt-1">
+                                  {ans.questionText}
+                                </p>
+
+                                {/* Option Chosen vs Correct */}
+                                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                  <div className="p-2 rounded-lg bg-white/80 border border-gray-200">
+                                    <span className="text-gray-500 font-semibold">Student Answer: </span>
+                                    <strong className={ans.isCorrect ? "text-green-700" : "text-red-700"}>
+                                      Option {ans.selectedOption || "None (Unanswered)"}
+                                    </strong>
+                                  </div>
+                                  <div className="p-2 rounded-lg bg-white/80 border border-gray-200">
+                                    <span className="text-gray-500 font-semibold">Correct Answer: </span>
+                                    <strong className="text-green-700">Option {ans.correctOption}</strong>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
-
-                        <div className="space-y-2.5">
-                          {sub.answers.map(ans => (
-                            <div
-                              key={ans.questionOrder}
-                              className={`p-3 rounded-xl border text-xs sm:text-sm ${
-                                ans.isCorrect
-                                  ? "bg-green-50/60 border-green-200"
-                                  : "bg-red-50/40 border-red-200"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <span className="font-bold text-[#001232]">
-                                  Q{ans.questionOrder}:
-                                </span>
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                  ans.isCorrect ? "bg-green-200 text-green-900" : "bg-red-200 text-red-900"
-                                }`}>
-                                  {ans.marksAwarded} / {ans.questionMarks} Mark{ans.questionMarks > 1 ? "s" : ""}
-                                </span>
-                              </div>
-
-                              {/* Question Stem in Arabic Font */}
-                              <p dir="auto" className="font-amiri text-sm sm:text-base font-semibold text-gray-800 mt-1">
-                                {ans.questionText}
-                              </p>
-
-                              {/* Option Chosen vs Correct */}
-                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                <div className="p-2 rounded-lg bg-white/80 border border-gray-200">
-                                  <span className="text-gray-500 font-semibold">Student Answer: </span>
-                                  <strong className={ans.isCorrect ? "text-green-700" : "text-red-700"}>
-                                    Option {ans.selectedOption || "None (Unanswered)"}
-                                  </strong>
-                                </div>
-                                <div className="p-2 rounded-lg bg-white/80 border border-gray-200">
-                                  <span className="text-gray-500 font-semibold">Correct Answer: </span>
-                                  <strong className="text-green-700">Option {ans.correctOption}</strong>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
                       </div>
                     )}
                   </div>

@@ -54,43 +54,51 @@ export async function POST(
 
       let calculatedScore = 0;
 
-      // Ensure every question has an ExamAnswer record with proper grading
+      // Ensure every answered question has an ExamAnswer record with proper grading
       for (const q of exam.questions) {
         const existingAns = answerMap.get(q.id);
         const selected = existingAns?.selectedOption || null;
-        const isCorrect = selected ? selected.toUpperCase() === q.correctOption.toUpperCase() : false;
-        const marksAwarded = isCorrect ? q.marks : 0;
-        calculatedScore += marksAwarded;
+        if (selected) {
+          const isCorrect = selected.toUpperCase() === q.correctOption.toUpperCase();
+          const marksAwarded = isCorrect ? q.marks : 0;
+          calculatedScore += marksAwarded;
 
-        await prisma.examAnswer.upsert({
-          where: {
-            attemptId_questionId: {
+          await prisma.examAnswer.upsert({
+            where: {
+              attemptId_questionId: {
+                attemptId: attempt.id,
+                questionId: q.id
+              }
+            },
+            update: {
+              selectedOption: selected,
+              isCorrect,
+              marksAwarded
+            },
+            create: {
               attemptId: attempt.id,
-              questionId: q.id
+              questionId: q.id,
+              selectedOption: selected,
+              isCorrect,
+              marksAwarded
             }
-          },
-          update: {
-            selectedOption: selected,
-            isCorrect,
-            marksAwarded
-          },
-          create: {
-            attemptId: attempt.id,
-            questionId: q.id,
-            selectedOption: selected,
-            isCorrect,
-            marksAwarded
-          }
-        });
+          });
+        }
       }
 
-      const grade = calculateGrade(calculatedScore, exam.totalMarks);
+      // Safeguard: NEVER overwrite an existing preserved/overridden score with 0
+      const hasPreservedScore = attempt.scoreObtained !== null && attempt.scoreObtained > 0;
+      const finalScore: number = (hasPreservedScore && calculatedScore === 0)
+        ? (attempt.scoreObtained ?? 0)
+        : calculatedScore;
 
-      // Update attempt score and grade
+      const grade = calculateGrade(finalScore, exam.totalMarks);
+
+      // Update attempt score and grade only if recalculating valid answers
       await prisma.examAttempt.update({
         where: { id: attempt.id },
         data: {
-          scoreObtained: calculatedScore,
+          scoreObtained: finalScore,
           grade
         }
       });
@@ -104,13 +112,13 @@ export async function POST(
           }
         },
         update: {
-          score: calculatedScore,
+          score: finalScore,
           date: new Date()
         },
         create: {
           studentId: attempt.studentId,
           programId: exam.programId,
-          score: calculatedScore,
+          score: finalScore,
           date: new Date()
         }
       });
